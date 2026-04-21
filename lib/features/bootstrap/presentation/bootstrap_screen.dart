@@ -7,26 +7,8 @@ import '../../../shared/providers/app_providers.dart';
 
 Future<void> ensureReferenceData(WidgetRef ref) async {
   final db = ref.read(appDatabaseProvider);
-
-  final localProjects = await db.getAllProjects();
-  final localEmployees = await db.getAllEmployees();
-  final localEquipments = await db.getAllEquipments();
-  final localTasks = await db.getAllTasks();
-  final localLocations = await db.getAllLocations();
-  final localMaterials = await db.getAllMaterialReferences();
-
-  final hasReferenceData = localProjects.isNotEmpty &&
-      localEmployees.isNotEmpty &&
-      localEquipments.isNotEmpty &&
-      localTasks.isNotEmpty &&
-      localLocations.isNotEmpty &&
-      localMaterials.isNotEmpty;
-
-  if (hasReferenceData) {
-    return;
-  }
-
   final api = ref.read(bootstrapApiProvider);
+
   final result = await api.fetchBootstrap();
 
   final projects = (result['projects'] as List<dynamic>? ?? [])
@@ -48,6 +30,7 @@ Future<void> ensureReferenceData(WidgetRef ref) async {
       .map((e) => Map<String, dynamic>.from(e as Map))
       .toList();
 
+  await db.clearReferenceData();
   await db.saveProjects(projects);
   await db.saveEmployees(employees);
   await db.saveEquipments(equipments);

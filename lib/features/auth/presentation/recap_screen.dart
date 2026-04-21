@@ -1414,7 +1414,7 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
 
   Widget _buildSignaturePanel({
     required String title,
-    required String subtitle,
+    // required String subtitle,
     required List<Offset?> points,
     String? existingSignatureBase64,
     required VoidCallback onClear,
@@ -1450,14 +1450,14 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Text(
+                    /* Text(
                       subtitle,
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                         color: Color(0xFF6D7990),
                       ),
-                    ),
+                    ), */
                   ],
                 ),
               ),
@@ -1585,8 +1585,8 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
           return Column(
             children: [
               _buildSignaturePanel(
-                title: 'Signature client',
-                subtitle: 'Le representant client signe directement sur la tablette.',
+                title: 'Signature Superviseur Client',
+                // subtitle: 'Le representant client signe directement sur la tablette.',
                 points: _clientSignaturePoints,
                 existingSignatureBase64: _existingClientSignature,
                 onClear: () {
@@ -1597,8 +1597,8 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
               ),
               const SizedBox(height: 14),
               _buildSignaturePanel(
-                title: 'Signature entreprise',
-                subtitle: "Le representant de l'entreprise signe sur la meme feuille.",
+                title: 'Signature Superviseur Aurora',
+                // subtitle: "Le representant de l'entreprise signe sur la meme feuille.",
                 points: _companySignaturePoints,
                 existingSignatureBase64: _existingForageSignature,
                 onClear: () {
@@ -1616,8 +1616,8 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
           children: [
             Expanded(
               child: _buildSignaturePanel(
-                title: 'Signature client',
-                subtitle: 'Le representant client signe directement sur la tablette.',
+                title: 'Signature Superviseur Client',
+                // subtitle: 'Le representant client signe directement sur la tablette.',
                 points: _clientSignaturePoints,
                 existingSignatureBase64: _existingClientSignature,
                 onClear: () {
@@ -1630,8 +1630,8 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
             const SizedBox(width: 14),
             Expanded(
               child: _buildSignaturePanel(
-                title: 'Signature entreprise',
-                subtitle: "Le representant de l'entreprise signe sur la meme feuille.",
+                title: 'Signature Superviseur Aurora',
+                // subtitle: "Le representant de l'entreprise signe sur la meme feuille.",
                 points: _companySignaturePoints,
                 existingSignatureBase64: _existingForageSignature,
                 onClear: () {
@@ -1781,7 +1781,7 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
                         _buildSummaryTile('Lignes temps', '${draft.timeLogs.length}', const Color(0xFF2457C5)),
                         _buildSummaryTile('Employes', '${draft.staffLogs.length}', const Color(0xFFE2802E)),
                         _buildSummaryTile('Materiels', '${draft.materielLogs.length}', const Color(0xFF0F9D8A)),
-                        _buildSummaryTile('Fuel', '${draft.fuelLogs.length}', const Color(0xFF8A3FFC)),
+                        _buildSummaryTile('Equip Aux/Fuel', '${draft.fuelLogs.length}', const Color(0xFF8A3FFC)),
                         _buildSummaryTile('Metres drill', '$_totalMetersDrill', const Color(0xFFDB4437)),
                         _buildSummaryTile('Heures', _totalHours, const Color(0xFF1F7A8C)),
                         _buildSummaryTile('Fuel total', _formatFuel(_totalFuel), const Color(0xFF6C9A1F)),

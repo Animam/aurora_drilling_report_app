@@ -250,7 +250,118 @@ class _DrillingFuelFormState extends ConsumerState<DrillingFuelForm> {
     }
   }
 
-  void _showTimeSpinner(BuildContext context, TextEditingController controller) {
+  double? _parseHour(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) {
+      return null;
+    }
+
+    final parts = trimmed.split(':');
+    if (parts.length != 2) {
+      return null;
+    }
+
+    final hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+    if (hour == null || minute == null) {
+      return null;
+    }
+
+    return hour + (minute / 60.0);
+  }
+
+  String _formatMinutes(int totalMinutes) {
+    final normalized = totalMinutes % (24 * 60);
+    final hours = (normalized ~/ 60).toString().padLeft(2, '0');
+    final minutes = (normalized % 60).toString().padLeft(2, '0');
+    return '$hours:$minutes';
+  }
+
+  double _shiftStartValue() {
+    final draft = ref.read(reportDraftProvider);
+    if (draft.quart == 'Night/Nuit') {
+      return draft.projectDateDN ?? 0.0;
+    }
+    return draft.projectDateDJ ?? 0.0;
+  }
+
+  double _shiftEndValue() {
+    final draft = ref.read(reportDraftProvider);
+    if (draft.quart == 'Night/Nuit') {
+      final start = _shiftStartValue();
+      final rawEnd = draft.projectDateDJ ?? start;
+      return rawEnd <= start ? rawEnd + 24.0 : rawEnd;
+    }
+    return draft.projectDateDN ?? _shiftStartValue();
+  }
+
+  double _normalizeForShift(double value) {
+    final draft = ref.read(reportDraftProvider);
+    if (draft.quart != 'Night/Nuit') {
+      return value;
+    }
+    final shiftStart = _shiftStartValue();
+    return value < shiftStart ? value + 24.0 : value;
+  }
+
+  List<String> _buildAllowedTimes({required double minValue, required double maxValue}) {
+    final minMinutes = (_normalizeForShift(minValue) * 60).round();
+    final maxMinutes = (_normalizeForShift(maxValue) * 60).round();
+    if (maxMinutes < minMinutes) {
+      return const [];
+    }
+
+    final firstAllowedMinute = ((minMinutes + 4) ~/ 5) * 5;
+    final values = <String>[];
+
+    if (firstAllowedMinute > minMinutes) {
+      values.add(_formatMinutes(minMinutes));
+    }
+
+    for (var minute = firstAllowedMinute; minute <= maxMinutes; minute += 5) {
+      values.add(_formatMinutes(minute));
+    }
+
+    final maxFormatted = _formatMinutes(maxMinutes);
+    if (values.isEmpty || values.last != maxFormatted) {
+      values.add(maxFormatted);
+    }
+
+    return values;
+  }
+
+  List<String> _allowedStartTimesFor(_FuelLogDraft item) {
+    final currentEnd = _parseHour(item.hFin.text);
+    final maxValue = currentEnd == null ? _shiftEndValue() : _normalizeForShift(currentEnd);
+    return _buildAllowedTimes(minValue: _shiftStartValue(), maxValue: maxValue);
+  }
+
+  List<String> _allowedEndTimesFor(_FuelLogDraft item) {
+    final currentStart = _parseHour(item.hDebut.text);
+    final minValue = currentStart == null ? _shiftStartValue() : _normalizeForShift(currentStart);
+    return _buildAllowedTimes(minValue: minValue, maxValue: _shiftEndValue());
+  }
+
+  List<String> _allowedFreeTimes() {
+    return [
+      for (var minute = 0; minute < 24 * 60; minute += 5) _formatMinutes(minute),
+    ];
+  }
+
+  void _showTimeSpinner(
+    BuildContext context,
+    TextEditingController controller,
+    List<String> allowedTimes,
+  ) {
+    if (allowedTimes.isEmpty) {
+      return;
+    }
+
+    var selectedIndex = allowedTimes.indexOf(controller.text.trim());
+    if (selectedIndex < 0) {
+      selectedIndex = 0;
+    }
+
     showModalBottomSheet(
       context: context,
       builder: (BuildContext builder) {
@@ -272,23 +383,28 @@ class _DrillingFuelFormState extends ConsumerState<DrillingFuelForm> {
                       child: const Text('Annuler', style: TextStyle(color: Colors.red)),
                     ),
                     TextButton(
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: () {
+                        setState(() {
+                          controller.text = allowedTimes[selectedIndex];
+                        });
+                        _persistDraft();
+                        Navigator.pop(context);
+                      },
                       child: const Text('OK', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
                     ),
                   ],
                 ),
               ),
               Expanded(
-                child: CupertinoDatePicker(
-                  mode: CupertinoDatePickerMode.time,
-                  use24hFormat: true,
-                  onDateTimeChanged: (DateTime newDate) {
-                    setState(() {
-                      controller.text =
-                          '${newDate.hour.toString().padLeft(2, '0')}:${newDate.minute.toString().padLeft(2, '0')}';
-                    });
-                    _persistDraft();
+                child: CupertinoPicker(
+                  scrollController: FixedExtentScrollController(initialItem: selectedIndex),
+                  itemExtent: 40,
+                  onSelectedItemChanged: (value) {
+                    selectedIndex = value;
                   },
+                  children: allowedTimes
+                      .map((time) => Center(child: Text(time, style: const TextStyle(fontSize: 20))))
+                      .toList(),
                 ),
               ),
             ],
@@ -419,7 +535,7 @@ class _DrillingFuelFormState extends ConsumerState<DrillingFuelForm> {
                         onChanged: (value) => _handleEquipmentChanged(item, value),
                         decoration: const InputDecoration(
                           hintText: 'Selectionnez un equipement',
-                          suffixIcon: Icon(Icons.search, size: 18),
+                          suffixIcon: Icon(Icons.unfold_more, size: 18),
                           border: InputBorder.none,
                           contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 12),
                         ),
@@ -475,14 +591,14 @@ class _DrillingFuelFormState extends ConsumerState<DrillingFuelForm> {
     );
   }
 
-  Widget _buildSpinnerInput(String label, TextEditingController controller) {
+  Widget _buildSpinnerInput(String label, TextEditingController controller, List<String> allowedTimes) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF374151))),
         const SizedBox(height: 6),
         GestureDetector(
-          onTap: () => _showTimeSpinner(context, controller),
+          onTap: () => _showTimeSpinner(context, controller, allowedTimes),
           child: AbsorbPointer(
             child: Container(
               decoration: _fieldDecoration(),
@@ -572,17 +688,17 @@ class _DrillingFuelFormState extends ConsumerState<DrillingFuelForm> {
                 const SizedBox(height: 16),
                 Row(
                   children: [
-                    Expanded(child: _buildSpinnerInput('Heure. D', item.hDebut)),
+                    Expanded(child: _buildSpinnerInput('Heure. D', item.hDebut, _allowedStartTimesFor(item))),
                     const SizedBox(width: 12),
-                    Expanded(child: _buildSpinnerInput('Heure. F', item.hFin)),
+                    Expanded(child: _buildSpinnerInput('Heure. F', item.hFin, _allowedEndTimesFor(item))),
                   ],
                 ),
                 const SizedBox(height: 16),
                 Row(
                   children: [
-                    Expanded(child: _buildSpinnerInput('H. Debut Ravi', item.hDebutRavi)),
+                    Expanded(child: _buildSpinnerInput('H. Debut Ravi', item.hDebutRavi, _allowedFreeTimes())),
                     const SizedBox(width: 12),
-                    Expanded(child: _buildSpinnerInput('H. Fin Ravi', item.hFinRavi)),
+                    Expanded(child: _buildSpinnerInput('H. Fin Ravi', item.hFinRavi, _allowedFreeTimes())),
                   ],
                 ),
               ],

@@ -232,6 +232,17 @@ class AppDatabase extends _$AppDatabase {
     onUpgrade: (Migrator m, int from, int to) async => m.createAll(),
   );
 
+  Future<void> clearReferenceData() async {
+    await transaction(() async {
+      await delete(projects).go();
+      await delete(employees).go();
+      await delete(equipments).go();
+      await delete(tasks).go();
+      await delete(locations).go();
+      await delete(materialReferences).go();
+    });
+  }
+
   Future<void> saveProjects(List<Map<String, dynamic>> items) async {
     await batch((batch) {
       batch.insertAll(

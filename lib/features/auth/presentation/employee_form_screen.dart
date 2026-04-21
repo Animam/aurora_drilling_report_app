@@ -182,20 +182,39 @@ class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
     return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}';
   }
 
-  String _projectStartHour() {
+  double _shiftStartValue() {
     final draft = ref.read(reportDraftProvider);
     if (draft.quart == 'Night/Nuit') {
-      return _formatDecimalHour(draft.projectDateDN);
+      return draft.projectDateDN ?? 0.0;
     }
-    return _formatDecimalHour(draft.projectDateDJ);
+    return draft.projectDateDJ ?? 0.0;
+  }
+
+  double _shiftEndValue() {
+    final draft = ref.read(reportDraftProvider);
+    if (draft.quart == 'Night/Nuit') {
+      final start = _shiftStartValue();
+      final rawEnd = draft.projectDateDJ ?? start;
+      return rawEnd <= start ? rawEnd + 24.0 : rawEnd;
+    }
+    return draft.projectDateDN ?? _shiftStartValue();
+  }
+
+  double _normalizeForShift(double value) {
+    final draft = ref.read(reportDraftProvider);
+    if (draft.quart != 'Night/Nuit') {
+      return value;
+    }
+    final shiftStart = _shiftStartValue();
+    return value < shiftStart ? value + 24.0 : value;
+  }
+
+  String _projectStartHour() {
+    return _formatDecimalHour(_shiftStartValue());
   }
 
   String _projectEndHour() {
-    final draft = ref.read(reportDraftProvider);
-    if (draft.quart == 'Night/Nuit') {
-      return _formatDecimalHour(draft.projectDateDJ);
-    }
-    return _formatDecimalHour(draft.projectDateDN);
+    return _formatDecimalHour(_shiftEndValue() % 24.0);
   }
 
   _StaffLogDraft _createStaffLog() {
@@ -206,6 +225,52 @@ class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
     _recomputeTotal(log);
     return log;
   }
+
+  String _formatMinutes(int totalMinutes) {
+    final normalized = totalMinutes % (24 * 60);
+    final hours = (normalized ~/ 60).toString().padLeft(2, '0');
+    final minutes = (normalized % 60).toString().padLeft(2, '0');
+    return '$hours:$minutes';
+  }
+
+  List<String> _buildAllowedTimes({required double minValue, required double maxValue}) {
+    final minMinutes = (_normalizeForShift(minValue) * 60).round();
+    final maxMinutes = (_normalizeForShift(maxValue) * 60).round();
+    if (maxMinutes < minMinutes) {
+      return const [];
+    }
+
+    final firstAllowedMinute = ((minMinutes + 4) ~/ 5) * 5;
+    final values = <String>[];
+
+    if (firstAllowedMinute > minMinutes) {
+      values.add(_formatMinutes(minMinutes));
+    }
+
+    for (var minute = firstAllowedMinute; minute <= maxMinutes; minute += 5) {
+      values.add(_formatMinutes(minute));
+    }
+
+    final maxFormatted = _formatMinutes(maxMinutes);
+    if (values.isEmpty || values.last != maxFormatted) {
+      values.add(maxFormatted);
+    }
+
+    return values;
+  }
+
+  List<String> _allowedStartTimesFor(_StaffLogDraft log) {
+    final currentEnd = _parseHour(log.hFin.text);
+    final maxValue = currentEnd == null ? _shiftEndValue() : _normalizeForShift(currentEnd);
+    return _buildAllowedTimes(minValue: _shiftStartValue(), maxValue: maxValue);
+  }
+
+  List<String> _allowedEndTimesFor(_StaffLogDraft log) {
+    final currentStart = _parseHour(log.hDebut.text);
+    final minValue = currentStart == null ? _shiftStartValue() : _normalizeForShift(currentStart);
+    return _buildAllowedTimes(minValue: minValue, maxValue: _shiftEndValue());
+  }
+
 
   Future<void> _scrollToBottom() async {
     await Future<void>.delayed(const Duration(milliseconds: 50));
@@ -238,7 +303,21 @@ class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
     _persistDraft();
   }
 
-  void _showTimeSpinner(BuildContext context, TextEditingController controller, VoidCallback afterChange) {
+  void _showTimeSpinner(
+    BuildContext context,
+    TextEditingController controller,
+    VoidCallback afterChange,
+    List<String> allowedTimes,
+  ) {
+    if (allowedTimes.isEmpty) {
+      return;
+    }
+
+    var selectedIndex = allowedTimes.indexOf(controller.text.trim());
+    if (selectedIndex < 0) {
+      selectedIndex = 0;
+    }
+
     showModalBottomSheet(
       context: context,
       builder: (BuildContext builder) {
@@ -260,7 +339,14 @@ class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
                       child: const Text('Annuler', style: TextStyle(color: Colors.red)),
                     ),
                     TextButton(
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: () {
+                        setState(() {
+                          controller.text = allowedTimes[selectedIndex];
+                          afterChange();
+                        });
+                        _persistDraft();
+                        Navigator.pop(context);
+                      },
                       child: const Text(
                         'OK',
                         style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
@@ -270,17 +356,22 @@ class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
                 ),
               ),
               Expanded(
-                child: CupertinoDatePicker(
-                  mode: CupertinoDatePickerMode.time,
-                  use24hFormat: true,
-                  onDateTimeChanged: (DateTime newDate) {
-                    setState(() {
-                      controller.text =
-                          '${newDate.hour.toString().padLeft(2, '0')}:${newDate.minute.toString().padLeft(2, '0')}';
-                      afterChange();
-                    });
-                    _persistDraft();
+                child: CupertinoPicker(
+                  scrollController: FixedExtentScrollController(initialItem: selectedIndex),
+                  itemExtent: 40,
+                  onSelectedItemChanged: (value) {
+                    selectedIndex = value;
                   },
+                  children: allowedTimes
+                      .map(
+                        (time) => Center(
+                          child: Text(
+                            time,
+                            style: const TextStyle(fontSize: 20),
+                          ),
+                        ),
+                      )
+                      .toList(),
                 ),
               ),
             ],
@@ -445,6 +536,7 @@ class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
     String label,
     TextEditingController controller,
     VoidCallback afterChange,
+    List<String> allowedTimes,
   ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -455,7 +547,7 @@ class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
         ),
         const SizedBox(height: 6),
         GestureDetector(
-          onTap: () => _showTimeSpinner(context, controller, afterChange),
+          onTap: () => _showTimeSpinner(context, controller, afterChange, allowedTimes),
           child: AbsorbPointer(
             child: Container(
               decoration: _fieldDecoration(isReadOnly: false),
@@ -551,6 +643,7 @@ class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
                         'H. Debut',
                         log.hDebut,
                         () => _recomputeTotal(log),
+                        _allowedStartTimesFor(log),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -559,6 +652,7 @@ class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
                         'H. Fin',
                         log.hFin,
                         () => _recomputeTotal(log),
+                        _allowedEndTimesFor(log),
                       ),
                     ),
                   ],

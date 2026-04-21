@@ -33,6 +33,23 @@ class AuthApi {
       throw Exception('La reponse de login ne contient pas de result');
     }
 
-    return Map<String, dynamic>.from(data['result'] as Map);
+    final result = Map<String, dynamic>.from(data['result'] as Map);
+    final success = result['success'] == true;
+
+    if (!success) {
+      throw Exception(result['message']?.toString() ?? 'Identifiants invalides');
+    }
+
+    return result;
+  }
+
+  Future<void> logout() async {
+    await _dio.post(
+      '/mobile/auth/logout',
+      data: {
+        'jsonrpc': '2.0',
+        'params': <String, dynamic>{},
+      },
+    );
   }
 }

@@ -429,7 +429,7 @@ class _DrillingConsumableFormState extends ConsumerState<DrillingConsumableForm>
                         onChanged: (value) => _handleDescriptionChanged(item, value),
                         decoration: const InputDecoration(
                           hintText: 'Selectionnez un materiel',
-                          suffixIcon: Icon(Icons.search, size: 18),
+                          suffixIcon: Icon(Icons.unfold_more, size: 18),
                           border: InputBorder.none,
                           contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 12),
                         ),
@@ -514,7 +514,7 @@ class _DrillingConsumableFormState extends ConsumerState<DrillingConsumableForm>
                         onChanged: (value) => _handleReferenceChanged(item, value),
                         decoration: const InputDecoration(
                           hintText: 'Saisir ou choisir une reference',
-                          suffixIcon: Icon(Icons.search, size: 18),
+                          suffixIcon: Icon(Icons.unfold_more, size: 18),
                           border: InputBorder.none,
                           contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 12),
                         ),

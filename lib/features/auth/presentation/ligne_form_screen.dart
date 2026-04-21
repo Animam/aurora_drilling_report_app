@@ -187,14 +187,43 @@ class _LigneTempsScreenState extends ConsumerState<LigneTempsScreen> {
     return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}';
   }
 
-  String _quartStartHour() {
+  double _shiftStartValue() {
     if (widget.quart == 'Day/Jour') {
-      return _formatDecimalHour(widget.projectDateDJ);
+      return widget.projectDateDJ ?? 0.0;
     }
     if (widget.quart == 'Night/Nuit') {
-      return _formatDecimalHour(widget.projectDateDN);
+      return widget.projectDateDN ?? 0.0;
     }
-    return '00:00';
+    return 0.0;
+  }
+
+  double _shiftEndValue() {
+    if (widget.quart == 'Day/Jour') {
+      return widget.projectDateDN ?? _shiftStartValue();
+    }
+    if (widget.quart == 'Night/Nuit') {
+      final start = _shiftStartValue();
+      final rawEnd = widget.projectDateDJ ?? start;
+      return rawEnd <= start ? rawEnd + 24.0 : rawEnd;
+    }
+    return _shiftStartValue();
+  }
+
+  double _normalizeForShift(double value) {
+    if (widget.quart != 'Night/Nuit') {
+      return value;
+    }
+    final shiftStart = _shiftStartValue();
+    return value < shiftStart ? value + 24.0 : value;
+  }
+
+  String _quartStartHour() {
+    return _formatDecimalHour(_shiftStartValue());
+  }
+
+  String _quartEndHour() {
+    final end = _shiftEndValue() % 24.0;
+    return _formatDecimalHour(end);
   }
 
   String _initialStartForNewLog() {
@@ -241,6 +270,10 @@ class _LigneTempsScreenState extends ConsumerState<LigneTempsScreen> {
   }
 
   void _addLog() {
+    if (!_validateAllTimeLogs()) {
+      return;
+    }
+
     setState(() {
       _timeLogs.add(_createTimeLog());
       _rechainTimeLogs(startIndex: _timeLogs.length - 1);
@@ -320,7 +353,122 @@ class _LigneTempsScreenState extends ConsumerState<LigneTempsScreen> {
     log.duree.text = _formatDuration(duration);
   }
 
-  void _showTimeSpinner(BuildContext context, TextEditingController controller, VoidCallback afterChange) {
+  void _showShiftMessage(String message) {
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+  }
+
+  bool _validateTimeLogAt(int index, {bool showMessage = true}) {
+    final log = _timeLogs[index];
+    final start = _parseHour(log.heureDebut.text);
+    final end = _parseHour(log.heureFin.text);
+
+    if (start == null || end == null) {
+      if (showMessage) {
+        _showShiftMessage('Renseignez une heure fin valide pour la ligne ${index + 1}.');
+      }
+      return false;
+    }
+
+    final normalizedStart = _normalizeForShift(start);
+    final normalizedEnd = _normalizeForShift(end);
+    final shiftEnd = _shiftEndValue();
+
+    if (normalizedEnd < normalizedStart) {
+      if (showMessage) {
+        _showShiftMessage(
+          'La ligne ${index + 1} depasse la plage du shift (${_quartStartHour()} - ${_quartEndHour()}).',
+        );
+      }
+      return false;
+    }
+
+    if (normalizedEnd > shiftEnd) {
+      if (showMessage) {
+        _showShiftMessage(
+          'Heure fin hors plage du shift. La ligne ${index + 1} doit rester entre ${_quartStartHour()} et ${_quartEndHour()}.',
+        );
+      }
+      return false;
+    }
+
+    return true;
+  }
+
+  bool _validateAllTimeLogs() {
+    for (var index = 0; index < _timeLogs.length; index++) {
+      if (!_validateTimeLogAt(index)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  String _formatMinutes(int totalMinutes) {
+    final normalized = totalMinutes % (24 * 60);
+    final hours = (normalized ~/ 60).toString().padLeft(2, '0');
+    final minutes = (normalized % 60).toString().padLeft(2, '0');
+    return '$hours:$minutes';
+  }
+
+  List<String> _allowedEndTimesFor(int index) {
+    final log = _timeLogs[index];
+    final start = _parseHour(log.heureDebut.text);
+    if (start == null) {
+      return const [];
+    }
+
+    final startMinutes = (_normalizeForShift(start) * 60).round();
+    final endMinutes = (_shiftEndValue() * 60).round();
+    if (endMinutes < startMinutes) {
+      return const [];
+    }
+
+    final firstAllowedMinute = ((startMinutes + 4) ~/ 5) * 5;
+
+    final values = <String>[];
+    if (firstAllowedMinute > startMinutes) {
+      values.add(_formatMinutes(startMinutes));
+    }
+
+    for (var minute = firstAllowedMinute; minute <= endMinutes; minute += 5) {
+      values.add(_formatMinutes(minute));
+    }
+
+    if (values.isEmpty || values.last != _formatMinutes(endMinutes)) {
+      values.add(_formatMinutes(endMinutes));
+    }
+
+    return values;
+  }
+
+  void _showTimeSpinner(
+    BuildContext context,
+    TextEditingController controller,
+    VoidCallback afterChange,
+    int index,
+  ) {
+    final allowedTimes = _allowedEndTimesFor(index);
+    if (allowedTimes.isEmpty) {
+      _showShiftMessage('Aucune heure fin disponible pour cette ligne.');
+      return;
+    }
+
+    var selectedIndex = allowedTimes.indexOf(controller.text.trim());
+    if (selectedIndex < 0) {
+      selectedIndex = 0;
+    }
+
     showModalBottomSheet(
       context: context,
       builder: (BuildContext builder) {
@@ -342,7 +490,14 @@ class _LigneTempsScreenState extends ConsumerState<LigneTempsScreen> {
                       child: const Text('Annuler', style: TextStyle(color: Colors.red)),
                     ),
                     TextButton(
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: () {
+                        setState(() {
+                          controller.text = allowedTimes[selectedIndex];
+                          afterChange();
+                        });
+                        _persistDraft();
+                        Navigator.pop(context);
+                      },
                       child: const Text(
                         'OK',
                         style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
@@ -352,17 +507,22 @@ class _LigneTempsScreenState extends ConsumerState<LigneTempsScreen> {
                 ),
               ),
               Expanded(
-                child: CupertinoDatePicker(
-                  mode: CupertinoDatePickerMode.time,
-                  use24hFormat: true,
-                  onDateTimeChanged: (DateTime newDate) {
-                    setState(() {
-                      controller.text =
-                          '${newDate.hour.toString().padLeft(2, '0')}:${newDate.minute.toString().padLeft(2, '0')}';
-                      afterChange();
-                    });
-                    _persistDraft();
+                child: CupertinoPicker(
+                  scrollController: FixedExtentScrollController(initialItem: selectedIndex),
+                  itemExtent: 40,
+                  onSelectedItemChanged: (value) {
+                    selectedIndex = value;
                   },
+                  children: allowedTimes
+                      .map(
+                        (time) => Center(
+                          child: Text(
+                            time,
+                            style: const TextStyle(fontSize: 20),
+                          ),
+                        ),
+                      )
+                      .toList(),
                 ),
               ),
             ],
@@ -430,6 +590,7 @@ class _LigneTempsScreenState extends ConsumerState<LigneTempsScreen> {
     String label,
     TextEditingController controller,
     VoidCallback afterChange,
+    int index,
   ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -444,7 +605,7 @@ class _LigneTempsScreenState extends ConsumerState<LigneTempsScreen> {
         ),
         const SizedBox(height: 6),
         GestureDetector(
-          onTap: () => _showTimeSpinner(context, controller, afterChange),
+          onTap: () => _showTimeSpinner(context, controller, afterChange, index),
           child: AbsorbPointer(
             child: Container(
               decoration: BoxDecoration(
@@ -594,8 +755,11 @@ class _LigneTempsScreenState extends ConsumerState<LigneTempsScreen> {
                         log.heureFin,
                         () {
                           _recomputeDuration(log);
-                          _rechainTimeLogs(startIndex: index + 1);
+                          if (_validateTimeLogAt(index, showMessage: false)) {
+                            _rechainTimeLogs(startIndex: index + 1);
+                          }
                         },
+                        index,
                       ),
                     ),
                   ],
@@ -746,6 +910,9 @@ class _LigneTempsScreenState extends ConsumerState<LigneTempsScreen> {
             flex: 1,
             child: InkWell(
               onTap: () {
+                if (!_validateAllTimeLogs()) {
+                  return;
+                }
                 _persistDraft();
                 Navigator.of(context).push(
                   MaterialPageRoute(

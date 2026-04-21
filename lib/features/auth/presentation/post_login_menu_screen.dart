@@ -23,6 +23,12 @@ class PostLoginMenuScreen extends ConsumerWidget {
   }
 
   Future<void> _logout(BuildContext context, WidgetRef ref) async {
+    try {
+      await ref.read(authApiProvider).logout();
+    } catch (_) {
+      // Even if the server session is already gone, local cleanup must continue.
+    }
+
     await ref.read(cookieJarProvider).deleteAll();
     ref.read(reportDraftProvider.notifier).reset();
 
@@ -38,7 +44,7 @@ class PostLoginMenuScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Accueil'),
+        // title: const Text('Accueil'),
         actions: [
           IconButton(
             tooltip: 'Se deconnecter',
