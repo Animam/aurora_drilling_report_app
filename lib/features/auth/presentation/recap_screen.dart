@@ -3,11 +3,11 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:aurora_drilling_report/data/local/db/app_database.dart';
-import 'package:aurora_drilling_report/features/auth/presentation/feuille_list_screen.dart';
 import 'package:aurora_drilling_report/features/auth/presentation/employee_form_screen.dart';
 import 'package:aurora_drilling_report/features/auth/presentation/fuel_form_screen.dart';
 import 'package:aurora_drilling_report/features/auth/presentation/ligne_form_screen.dart';
 import 'package:aurora_drilling_report/features/auth/presentation/materiel_form_screen.dart';
+import 'package:aurora_drilling_report/features/auth/presentation/post_login_menu_screen.dart';
 import 'package:aurora_drilling_report/features/auth/presentation/registration_screen.dart';
 import 'package:aurora_drilling_report/shared/providers/api_providers.dart';
 import 'package:aurora_drilling_report/shared/providers/app_providers.dart';
@@ -598,15 +598,20 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
         ),
       );
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const FeuilleListScreen()),
+        MaterialPageRoute(builder: (_) => const PostLoginMenuScreen()),
         (route) => false,
       );
     } catch (e) {
       if (!mounted) {
         return;
       }
+      final message = _cleanErrorMessage(e);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
+        SnackBar(
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.redAccent,
+        ),
       );
     } finally {
       if (mounted) {
@@ -848,19 +853,25 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
         return;
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Synchronisation reussie')),
-      );
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const FeuilleListScreen()),
+        MaterialPageRoute(
+          builder: (_) => const PostLoginMenuScreen(
+            initialMessage: 'Synchronisation reussie',
+          ),
+        ),
         (route) => false,
       );
     } catch (e) {
       if (!mounted) {
         return;
       }
+      final message = _cleanErrorMessage(e);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
+        SnackBar(
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.redAccent,
+        ),
       );
     } finally {
       if (mounted) {
@@ -869,6 +880,10 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
         });
       }
     }
+  }
+
+  String _cleanErrorMessage(Object error) {
+    return error.toString().replaceFirst('Exception: ', '').trim();
   }
 
   String _formatFuel(double value) {

@@ -6,8 +6,22 @@ import 'package:aurora_drilling_report/shared/providers/report_draft_provider.da
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class PostLoginMenuScreen extends ConsumerWidget {
-  const PostLoginMenuScreen({super.key});
+class PostLoginMenuScreen extends ConsumerStatefulWidget {
+  const PostLoginMenuScreen({
+    super.key,
+    this.initialMessage,
+    this.initialMessageIsError = false,
+  });
+
+  final String? initialMessage;
+  final bool initialMessageIsError;
+
+  @override
+  ConsumerState<PostLoginMenuScreen> createState() => _PostLoginMenuScreenState();
+}
+
+class _PostLoginMenuScreenState extends ConsumerState<PostLoginMenuScreen> {
+  bool _initialMessageShown = false;
 
   void _openCreateSheet(BuildContext context, WidgetRef ref) {
     ref.read(reportDraftProvider.notifier).reset();
@@ -41,7 +55,36 @@ class PostLoginMenuScreen extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  void initState() {
+    super.initState();
+    Future.microtask(_showInitialMessageIfNeeded);
+  }
+
+  void _showInitialMessageIfNeeded() {
+    if (_initialMessageShown || !mounted) {
+      return;
+    }
+    final message = widget.initialMessage?.trim();
+    if (message == null || message.isEmpty) {
+      return;
+    }
+
+    _initialMessageShown = true;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: widget.initialMessageIsError
+              ? Colors.redAccent
+              : const Color(0xFF0F9D8A),
+        ),
+      );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         // title: const Text('Accueil'),

@@ -8,13 +8,21 @@ import 'recap_screen.dart';
 import 'registration_screen.dart';
 
 class FeuilleListScreen extends ConsumerStatefulWidget {
-  const FeuilleListScreen({super.key});
+  const FeuilleListScreen({
+    super.key,
+    this.initialMessage,
+    this.initialMessageIsError = false,
+  });
+
+  final String? initialMessage;
+  final bool initialMessageIsError;
 
   @override
   ConsumerState<FeuilleListScreen> createState() => _FeuilleListScreenState();
 }
 
 class _FeuilleListScreenState extends ConsumerState<FeuilleListScreen> {
+  bool _initialMessageShown = false;
   List<Feuille> _items = [];
   Map<int, String> _equipmentNames = {};
   Map<int, String> _locationNames = {};
@@ -169,7 +177,33 @@ class _FeuilleListScreenState extends ConsumerState<FeuilleListScreen> {
   @override
   void initState() {
     super.initState();
-    Future.microtask(_load);
+    Future.microtask(() async {
+      await _load();
+      _showInitialMessageIfNeeded();
+    });
+  }
+
+  void _showInitialMessageIfNeeded() {
+    if (_initialMessageShown || !mounted) {
+      return;
+    }
+    final message = widget.initialMessage?.trim();
+    if (message == null || message.isEmpty) {
+      return;
+    }
+
+    _initialMessageShown = true;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: widget.initialMessageIsError
+              ? Colors.redAccent
+              : const Color(0xFF0F9D8A),
+        ),
+      );
   }
 
   @override
