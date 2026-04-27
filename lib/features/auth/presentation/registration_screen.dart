@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
-import 'ligne_form_screen.dart';
+import 'production_screen.dart';
 
 class RegistrationScreen extends ConsumerStatefulWidget {
   const RegistrationScreen({super.key});
@@ -231,7 +231,7 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
 
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => LigneTempsScreen(
+        builder: (_) => ProductionScreen(
           quart: _selectedQuart!,
           dateText: _dateController.text.trim(),
           projectOdooId: project.odooId,

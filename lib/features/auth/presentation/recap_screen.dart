@@ -5,9 +5,9 @@ import 'dart:ui' as ui;
 import 'package:aurora_drilling_report/data/local/db/app_database.dart';
 import 'package:aurora_drilling_report/features/auth/presentation/employee_form_screen.dart';
 import 'package:aurora_drilling_report/features/auth/presentation/fuel_form_screen.dart';
-import 'package:aurora_drilling_report/features/auth/presentation/ligne_form_screen.dart';
 import 'package:aurora_drilling_report/features/auth/presentation/materiel_form_screen.dart';
 import 'package:aurora_drilling_report/features/auth/presentation/post_login_menu_screen.dart';
+import 'package:aurora_drilling_report/features/auth/presentation/production_screen.dart';
 import 'package:aurora_drilling_report/features/auth/presentation/registration_screen.dart';
 import 'package:aurora_drilling_report/shared/providers/api_providers.dart';
 import 'package:aurora_drilling_report/shared/providers/app_providers.dart';
@@ -1813,7 +1813,7 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
                     icon: Icons.timeline_outlined,
                     accent: const Color(0xFF2457C5),
                     onEdit: () => _openScreen(
-                      LigneTempsScreen(
+                      ProductionScreen(
                         quart: draft.quart ?? 'Day/Jour',
                         dateText: draft.dateText ?? '',
                         projectOdooId: draft.projectOdooId ?? 0,
