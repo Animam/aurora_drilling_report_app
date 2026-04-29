@@ -1,4 +1,4 @@
-import 'package:aurora_drilling_report/data/local/db/app_database.dart';
+﻿import 'package:aurora_drilling_report/data/local/db/app_database.dart';
 import 'package:aurora_drilling_report/shared/providers/app_providers.dart';
 import 'package:aurora_drilling_report/shared/providers/report_draft_provider.dart';
 import 'package:flutter/material.dart';
@@ -8,10 +8,25 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'fuel_form_screen.dart';
 
 class _ConsumableLogDraft {
-  _ConsumableLogDraft();
+  _ConsumableLogDraft({
+    required this.showObservation,
+    this.materialOdooId,
+    String description = '',
+    String serie = '',
+    String quantite = '0',
+    String observation = '',
+    String status = '',
+  }) {
+    descriptionController.text = description;
+    this.serie.text = serie;
+    this.quantite.text = quantite;
+    this.observation.text = observation;
+    this.status.text = status;
+  }
 
-  _ConsumableLogDraft.fromReportDraft(ReportMaterielDraft draft) {
-    materialOdooId = draft.materialOdooId;
+  _ConsumableLogDraft.fromReportDraft(ReportMaterielDraft draft)
+      : materialOdooId = draft.materialOdooId,
+        showObservation = draft.observation.trim().isNotEmpty {
     descriptionController.text = draft.description;
     serie.text = draft.serie;
     quantite.text = draft.quantite;
@@ -20,6 +35,7 @@ class _ConsumableLogDraft {
   }
 
   int? materialOdooId;
+  bool showObservation;
   final TextEditingController descriptionController = TextEditingController();
   final TextEditingController serie = TextEditingController();
   final TextEditingController quantite = TextEditingController(text: '0');
@@ -29,11 +45,11 @@ class _ConsumableLogDraft {
   ReportMaterielDraft toReportDraft() {
     return ReportMaterielDraft(
       materialOdooId: materialOdooId,
-      description: descriptionController.text,
-      serie: serie.text,
-      quantite: quantite.text,
-      observation: observation.text,
-      status: status.text,
+      description: descriptionController.text.trim(),
+      serie: serie.text.trim(),
+      quantite: quantite.text.trim(),
+      observation: observation.text.trim(),
+      status: status.text.trim(),
     );
   }
 
@@ -41,13 +57,6 @@ class _ConsumableLogDraft {
     materialOdooId = material.odooId;
     descriptionController.text = material.description;
     serie.text = material.reference ?? '';
-  }
-
-  void clearMaterialSelection({bool clearSerie = true}) {
-    materialOdooId = null;
-    if (clearSerie) {
-      serie.text = '';
-    }
   }
 
   void dispose() {
@@ -75,8 +84,6 @@ class _DrillingConsumableFormState extends ConsumerState<DrillingConsumableForm>
   };
 
   final List<_ConsumableLogDraft> _items = [];
-  final ScrollController _scrollController = ScrollController();
-
   List<MaterialReference> _materialReferences = [];
   bool _loadingReferences = true;
   String? _referenceError;
@@ -94,7 +101,6 @@ class _DrillingConsumableFormState extends ConsumerState<DrillingConsumableForm>
   @override
   void dispose() {
     _persistDraft();
-    _scrollController.dispose();
     for (final item in _items) {
       item.dispose();
     }
@@ -135,16 +141,15 @@ class _DrillingConsumableFormState extends ConsumerState<DrillingConsumableForm>
   void _refreshDraftRowsFromReferences() {
     var changed = false;
     for (final item in _items) {
-      final match = _findMaterialMatch(
-        materialOdooId: item.materialOdooId,
-        description: item.descriptionController.text,
-      );
-      if (match == null) {
+      if (item.materialOdooId == null) {
         continue;
       }
-      if (item.materialOdooId != match.odooId || item.serie.text != (match.reference ?? '')) {
-        item.applyMaterial(match);
-        changed = true;
+      for (final material in _materialReferences) {
+        if (material.odooId == item.materialOdooId) {
+          item.applyMaterial(material);
+          changed = true;
+          break;
+        }
       }
     }
     if (changed) {
@@ -154,67 +159,128 @@ class _DrillingConsumableFormState extends ConsumerState<DrillingConsumableForm>
 
   void _persistDraft() {
     ref.read(reportDraftProvider.notifier).setMaterielLogs(
-          _items.map((item) => item.toReportDraft()).toList(),
+          _items.map((item) => item.toReportDraft()).toList(growable: false),
         );
   }
 
-  MaterialReference? _findMaterialMatch({int? materialOdooId, String? description}) {
-    if (materialOdooId != null) {
-      for (final material in _materialReferences) {
-        if (material.odooId == materialOdooId) {
-          return material;
-        }
-      }
-    }
-
-    final normalized = (description ?? '').trim().toLowerCase();
-    if (normalized.isEmpty) {
-      return null;
-    }
-
-    for (final material in _materialReferences) {
-      if (material.description.trim().toLowerCase() == normalized) {
-        return material;
-      }
-    }
-    return null;
+  bool _isMaterialAlreadyAdded(int materialOdooId) {
+    return _items.any((item) => item.materialOdooId == materialOdooId);
   }
 
-  MaterialReference? _findMaterialMatchByReference(String? reference) {
-    final normalized = (reference ?? '').trim().toLowerCase();
-    if (normalized.isEmpty) {
-      return null;
-    }
+  Future<void> _openAddMaterialDialog() async {
+    final selectedMaterial = await showDialog<MaterialReference>(
+      context: context,
+      builder: (context) {
+        final controller = TextEditingController();
+        var filtered = _materialReferences
+            .where((material) => !_isMaterialAlreadyAdded(material.odooId))
+            .toList(growable: false);
 
-    for (final material in _materialReferences) {
-      if ((material.reference ?? '').trim().toLowerCase() == normalized) {
-        return material;
-      }
-    }
-    return null;
-  }
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            void applyFilter(String query) {
+              final normalized = query.trim().toLowerCase();
+              setDialogState(() {
+                filtered = _materialReferences.where((material) {
+                  if (_isMaterialAlreadyAdded(material.odooId)) {
+                    return false;
+                  }
+                  if (normalized.isEmpty) {
+                    return true;
+                  }
+                  final haystack = '${material.reference ?? ''} ${material.description}'.toLowerCase();
+                  return haystack.contains(normalized);
+                }).toList(growable: false);
+              });
+            }
 
-  Future<void> _scrollToBottom() async {
-    await Future<void>.delayed(const Duration(milliseconds: 50));
-    if (!mounted || !_scrollController.hasClients) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              title: const Text(
+                'Ajouter un materiel',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+              content: SizedBox(
+                width: 560,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      controller: controller,
+                      onChanged: applyFilter,
+                      decoration: InputDecoration(
+                        hintText: 'Rechercher par reference ou description',
+                        prefixIcon: const Icon(Icons.search),
+                        filled: true,
+                        fillColor: Colors.white,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    if (filtered.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        child: Text('Aucun materiel disponible.'),
+                      )
+                    else
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxHeight: 360),
+                        child: ListView.separated(
+                          shrinkWrap: true,
+                          itemCount: filtered.length,
+                          separatorBuilder: (context, index) => const SizedBox(height: 8),
+                          itemBuilder: (context, index) {
+                            final material = filtered[index];
+                            return Material(
+                              color: const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(16),
+                              child: ListTile(
+                                title: Text(
+                                  material.reference?.isNotEmpty == true ? material.reference! : '--',
+                                  style: const TextStyle(fontWeight: FontWeight.w800),
+                                ),
+                                subtitle: Text(material.description),
+                                trailing: const Icon(Icons.add_circle_outline_rounded),
+                                onTap: () => Navigator.pop(context, material),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Fermer'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (selectedMaterial == null) {
       return;
     }
 
-    await _scrollController.animateTo(
-      _scrollController.position.maxScrollExtent,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOut,
-    );
-  }
-
-  void _addItem() {
     setState(() {
-      _items.add(_ConsumableLogDraft());
+      _items.add(
+        _ConsumableLogDraft(
+          showObservation: false,
+          materialOdooId: selectedMaterial.odooId,
+          description: selectedMaterial.description,
+          serie: selectedMaterial.reference ?? '',
+        ),
+      );
     });
     _persistDraft();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scrollToBottom();
-    });
   }
 
   void _removeItem(int index) {
@@ -236,300 +302,6 @@ class _DrillingConsumableFormState extends ConsumerState<DrillingConsumableForm>
     }
   }
 
-  void _applySelectedMaterial(_ConsumableLogDraft item, MaterialReference material) {
-    setState(() {
-      item.applyMaterial(material);
-    });
-    _persistDraft();
-  }
-
-  void _handleDescriptionChanged(_ConsumableLogDraft item, String value) {
-    item.descriptionController.text = value;
-    final match = _findMaterialMatch(description: value);
-
-    setState(() {
-      if (match != null) {
-        item.applyMaterial(match);
-      } else {
-        item.clearMaterialSelection();
-      }
-    });
-    _persistDraft();
-  }
-
-  void _handleReferenceChanged(_ConsumableLogDraft item, String value) {
-    item.serie.text = value;
-    final match = _findMaterialMatchByReference(value);
-
-    setState(() {
-      if (match != null) {
-        item.applyMaterial(match);
-      } else {
-        item.materialOdooId = null;
-      }
-    });
-    _persistDraft();
-  }
-
-  BoxDecoration _fieldDecoration({required bool isReadOnly}) {
-    return BoxDecoration(
-      color: isReadOnly ? const Color(0xFFF3F4F6) : Colors.white,
-      border: Border.all(color: const Color(0xFFE5E7EB)),
-      borderRadius: BorderRadius.circular(4),
-    );
-  }
-
-  Widget _buildReferenceStatus() {
-    if (_loadingReferences) {
-      return const Padding(
-        padding: EdgeInsets.only(bottom: 16),
-        child: LinearProgressIndicator(),
-      );
-    }
-    if (_referenceError != null) {
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 16),
-        child: Text(
-          _referenceError!,
-          style: const TextStyle(color: Colors.red),
-        ),
-      );
-    }
-    if (_materialReferences.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.only(bottom: 16),
-        child: Text(
-          'Aucun materiel de reference charge. Rechargez le bootstrap.',
-          style: TextStyle(color: Colors.red),
-        ),
-      );
-    }
-    return const SizedBox.shrink();
-  }
-
-  Widget _buildQuantityInput(String label, TextEditingController controller) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF374151)),
-        ),
-        const SizedBox(height: 6),
-        Container(
-          decoration: _fieldDecoration(isReadOnly: false),
-          child: IntrinsicHeight(
-            child: Row(
-              children: [
-                Container(width: 4, color: Colors.red),
-                IconButton(
-                  visualDensity: VisualDensity.compact,
-                  icon: const Icon(Icons.remove, size: 18, color: Colors.redAccent),
-                  onPressed: () => _updateQuantity(controller, -1),
-                ),
-                Expanded(
-                  child: TextField(
-                    controller: controller,
-                    textAlign: TextAlign.center,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-                    onChanged: (value) {
-                      if (value.isEmpty) {
-                        controller.text = '0';
-                        controller.selection = TextSelection.fromPosition(
-                          const TextPosition(offset: 1),
-                        );
-                      }
-                      _persistDraft();
-                    },
-                    decoration: const InputDecoration(border: InputBorder.none, isDense: true),
-                  ),
-                ),
-                IconButton(
-                  visualDensity: VisualDensity.compact,
-                  icon: const Icon(Icons.add, size: 18, color: Colors.green),
-                  onPressed: () => _updateQuantity(controller, 1),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSearchableDropdown(String label, _ConsumableLogDraft item) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF374151)),
-        ),
-        const SizedBox(height: 6),
-        Container(
-          decoration: _fieldDecoration(isReadOnly: false),
-          child: IntrinsicHeight(
-            child: Row(
-              children: [
-                Container(width: 4, color: Colors.red),
-                Expanded(
-                  child: RawAutocomplete<MaterialReference>(
-                    displayStringForOption: (option) => option.description,
-                    optionsBuilder: (value) {
-                      final query = value.text.trim().toLowerCase();
-                      if (query.isEmpty) {
-                        return _materialReferences;
-                      }
-                      return _materialReferences.where((option) {
-                        final description = option.description.toLowerCase();
-                        final reference = (option.reference ?? '').toLowerCase();
-                        return description.contains(query) || reference.contains(query);
-                      });
-                    },
-                    onSelected: (selection) => _applySelectedMaterial(item, selection),
-                    optionsViewBuilder: (context, onSelected, options) {
-                      return Align(
-                        alignment: Alignment.topLeft,
-                        child: Material(
-                          elevation: 4,
-                          borderRadius: BorderRadius.circular(12),
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(maxHeight: 240, maxWidth: 520),
-                            child: ListView.builder(
-                              padding: EdgeInsets.zero,
-                              shrinkWrap: true,
-                              itemCount: options.length,
-                              itemBuilder: (context, index) {
-                                final option = options.elementAt(index);
-                                return ListTile(
-                                  title: Text(option.description),
-                                  subtitle: Text(option.reference?.isNotEmpty == true ? option.reference! : '--'),
-                                  onTap: () => onSelected(option),
-                                );
-                              },
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                    fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
-                      if (item.descriptionController.text.isNotEmpty &&
-                          controller.text != item.descriptionController.text) {
-                        controller.value = TextEditingValue(
-                          text: item.descriptionController.text,
-                          selection: TextSelection.collapsed(offset: item.descriptionController.text.length),
-                        );
-                      }
-                      return TextField(
-                        controller: controller,
-                        focusNode: focusNode,
-                        style: const TextStyle(fontSize: 13),
-                        onChanged: (value) => _handleDescriptionChanged(item, value),
-                        decoration: const InputDecoration(
-                          hintText: 'Selectionnez un materiel',
-                          suffixIcon: Icon(Icons.unfold_more, size: 18),
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildReferenceAutocomplete(String label, _ConsumableLogDraft item) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF374151)),
-        ),
-        const SizedBox(height: 6),
-        Container(
-          decoration: _fieldDecoration(isReadOnly: false),
-          child: IntrinsicHeight(
-            child: Row(
-              children: [
-                Container(width: 4, color: Colors.red),
-                Expanded(
-                  child: RawAutocomplete<MaterialReference>(
-                    displayStringForOption: (option) => option.reference ?? '',
-                    optionsBuilder: (value) {
-                      final query = value.text.trim().toLowerCase();
-                      if (query.isEmpty) {
-                        return _materialReferences.where((option) => (option.reference ?? '').trim().isNotEmpty);
-                      }
-                      return _materialReferences.where((option) {
-                        final reference = (option.reference ?? '').toLowerCase();
-                        final description = option.description.toLowerCase();
-                        return reference.contains(query) || description.contains(query);
-                      });
-                    },
-                    onSelected: (selection) => _applySelectedMaterial(item, selection),
-                    optionsViewBuilder: (context, onSelected, options) {
-                      return Align(
-                        alignment: Alignment.topLeft,
-                        child: Material(
-                          elevation: 4,
-                          borderRadius: BorderRadius.circular(12),
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(maxHeight: 240, maxWidth: 520),
-                            child: ListView.builder(
-                              padding: EdgeInsets.zero,
-                              shrinkWrap: true,
-                              itemCount: options.length,
-                              itemBuilder: (context, index) {
-                                final option = options.elementAt(index);
-                                return ListTile(
-                                  title: Text(option.reference?.isNotEmpty == true ? option.reference! : '--'),
-                                  subtitle: Text(option.description),
-                                  onTap: () => onSelected(option),
-                                );
-                              },
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                    fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
-                      if (item.serie.text.isNotEmpty && controller.text != item.serie.text) {
-                        controller.value = TextEditingValue(
-                          text: item.serie.text,
-                          selection: TextSelection.collapsed(offset: item.serie.text.length),
-                        );
-                      }
-                      return TextField(
-                        controller: controller,
-                        focusNode: focusNode,
-                        style: const TextStyle(fontSize: 13),
-                        onChanged: (value) => _handleReferenceChanged(item, value),
-                        decoration: const InputDecoration(
-                          hintText: 'Saisir ou choisir une reference',
-                          suffixIcon: Icon(Icons.unfold_more, size: 18),
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
   String _normalizeStatusValue(String rawValue) {
     switch (rawValue.trim().toLowerCase()) {
       case '1':
@@ -548,118 +320,114 @@ class _DrillingConsumableFormState extends ConsumerState<DrillingConsumableForm>
     }
   }
 
-  Widget _buildStatusDropdown(_ConsumableLogDraft item) {
-    final normalizedValue = _statusOptions.containsKey(item.status.text) ? item.status.text : _normalizeStatusValue(item.status.text);
+  Widget _buildReferenceStatus() {
+    if (_loadingReferences) {
+      return const Padding(
+        padding: EdgeInsets.only(bottom: 16),
+        child: LinearProgressIndicator(),
+      );
+    }
+    if (_referenceError != null) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 16),
+        child: Text(_referenceError!, style: const TextStyle(color: Colors.red)),
+      );
+    }
+    if (_materialReferences.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.only(bottom: 16),
+        child: Text(
+          'Aucun materiel de reference charge.',
+          style: TextStyle(color: Colors.red),
+        ),
+      );
+    }
+    return const SizedBox.shrink();
+  }
+
+  Widget _buildStatusChips(_ConsumableLogDraft item) {
+    final normalizedValue = _statusOptions.containsKey(item.status.text)
+        ? item.status.text
+        : _normalizeStatusValue(item.status.text);
     if (item.status.text != normalizedValue) {
       item.status.text = normalizedValue;
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Status',
-          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF374151)),
-        ),
-        const SizedBox(height: 6),
-        Container(
-          decoration: _fieldDecoration(isReadOnly: false),
-          child: IntrinsicHeight(
-            child: Row(
-              children: [
-                Container(width: 4, color: Colors.red),
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    initialValue: normalizedValue,
-                    items: _statusOptions.entries
-                        .map((entry) => DropdownMenuItem<String>(
-                              value: entry.key,
-                              child: Text(entry.value),
-                            ))
-                        .toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        item.status.text = value ?? '';
-                      });
-                      _persistDraft();
-                    },
-                    decoration: const InputDecoration(
-                      border: InputBorder.none,
-                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                      isDense: true,
-                    ),
-                    dropdownColor: Colors.white,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: _statusOptions.entries.map((entry) {
+        final selected = normalizedValue == entry.key;
+        return ChoiceChip(
+          label: Text(entry.value),
+          selected: selected,
+          onSelected: (_) {
+            setState(() {
+              item.status.text = entry.key;
+            });
+            _persistDraft();
+          },
+        );
+      }).toList(growable: false),
     );
   }
 
-  Widget _buildStandardInput(String label, TextEditingController controller, {bool isReadOnly = false}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF374151)),
-        ),
-        const SizedBox(height: 6),
-        Container(
-          decoration: _fieldDecoration(isReadOnly: isReadOnly),
-          child: IntrinsicHeight(
-            child: Row(
-              children: [
-                Container(width: 4, color: Colors.red),
-                Expanded(
-                  child: TextField(
-                    controller: controller,
-                    readOnly: isReadOnly,
-                    onChanged: (_) => _persistDraft(),
-                    style: TextStyle(fontSize: 13, color: isReadOnly ? Colors.grey : const Color(0xFF1F2937)),
-                    decoration: const InputDecoration(
-                      border: InputBorder.none,
-                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                      isDense: true,
-                    ),
-                  ),
-                ),
-              ],
+  Widget _buildQuantityField(_ConsumableLogDraft item) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFD7DFEA)),
+      ),
+      child: Row(
+        children: [
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            onPressed: () => _updateQuantity(item.quantite, -1),
+            icon: const Icon(Icons.remove_circle_outline_rounded, color: Colors.redAccent),
+          ),
+          Expanded(
+            child: TextField(
+              controller: item.quantite,
+              textAlign: TextAlign.center,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              onChanged: (_) => _persistDraft(),
+              decoration: const InputDecoration(
+                border: InputBorder.none,
+                isDense: true,
+              ),
+              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
             ),
           ),
-        ),
-      ],
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            onPressed: () => _updateQuantity(item.quantite, 1),
+            icon: const Icon(Icons.add_circle_outline_rounded, color: Colors.green),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildNavButton(
-    String label,
-    Color color,
-    IconData icon,
-    bool isLeading, {
-    VoidCallback? onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(8)),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (isLeading) Icon(icon, color: Colors.white, size: 12),
-            Text(
-              label,
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-            ),
-            if (!isLeading) ...[
-              const SizedBox(width: 4),
-              Icon(icon, color: Colors.white, size: 12),
-            ],
-          ],
+  Widget _buildObservationField(_ConsumableLogDraft item) {
+    return TextField(
+      controller: item.observation,
+      onChanged: (_) => _persistDraft(),
+      minLines: 2,
+      maxLines: 3,
+      decoration: InputDecoration(
+        hintText: 'Ajouter une observation si necessaire',
+        filled: true,
+        fillColor: Colors.white,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: Color(0xFF1E3A5F)),
         ),
       ),
     );
@@ -667,51 +435,148 @@ class _DrillingConsumableFormState extends ConsumerState<DrillingConsumableForm>
 
   Widget _buildConsumableCard(int index) {
     final item = _items[index];
-    return Card(
-      elevation: 3,
-      margin: const EdgeInsets.only(bottom: 20),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            decoration: BoxDecoration(
-              color: Colors.grey[100],
-              borderRadius: const BorderRadius.only(topLeft: Radius.circular(8), topRight: Radius.circular(8)),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x12000000),
+            blurRadius: 18,
+            offset: Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               children: [
-                Text(
-                  'MATERIEL #${index + 1}',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.blueGrey),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.serie.text.trim().isEmpty ? '--' : item.serie.text.trim(),
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        item.descriptionController.text.trim().isEmpty
+                            ? 'Materiel non renseigne'
+                            : item.descriptionController.text.trim(),
+                        style: const TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.delete_sweep, color: Colors.red, size: 22),
                   onPressed: () => _removeItem(index),
+                  icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
+                  tooltip: 'Supprimer',
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    '#${index + 1}',
+                    style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF475569)),
+                  ),
                 ),
               ],
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+            const SizedBox(height: 16),
+            const Text(
+              'Quantite',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
+            _buildQuantityField(item),
+            const SizedBox(height: 16),
+            const Text(
+              'Status',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
+            _buildStatusChips(item),
+            const SizedBox(height: 14),
+            InkWell(
+              onTap: () {
+                setState(() {
+                  item.showObservation = !item.showObservation;
+                });
+              },
+              borderRadius: BorderRadius.circular(14),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Row(
                   children: [
-                    Expanded(child: _buildReferenceAutocomplete('Serie / Reference', item)),
-                    const SizedBox(width: 12),
-                    Expanded(child: _buildSearchableDropdown('Description', item)),
+                    const Icon(Icons.sticky_note_2_outlined, size: 18, color: Color(0xFF475569)),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        item.observation.text.trim().isEmpty ? 'Ajouter une observation' : 'Observation renseignee',
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    Icon(
+                      item.showObservation ? Icons.expand_less_rounded : Icons.expand_more_rounded,
+                      color: const Color(0xFF475569),
+                    ),
                   ],
                 ),
-                const SizedBox(height: 16),
-                _buildQuantityInput('Quantite', item.quantite),
-                const SizedBox(height: 16),
-                _buildStandardInput('Observation', item.observation),
-                const SizedBox(height: 16),
-                _buildStatusDropdown(item),
-              ],
+              ),
+            ),
+            if (item.showObservation) ...[
+              const SizedBox(height: 12),
+              _buildObservationField(item),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTopActions() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Materiels du shift',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '${_items.length} materiel(s) selectionne(s) pour cette feuille.',
+            style: const TextStyle(color: Color(0xFF64748B)),
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: _materialReferences.isEmpty ? null : _openAddMaterialDialog,
+              icon: const Icon(Icons.add_box_outlined),
+              label: const Text('Ajouter un materiel'),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF1E3A5F),
+                padding: const EdgeInsets.symmetric(vertical: 23),
+              ),
             ),
           ),
         ],
@@ -725,48 +590,18 @@ class _DrillingConsumableFormState extends ConsumerState<DrillingConsumableForm>
       child: Row(
         children: [
           Expanded(
-            child: _buildNavButton(
-              'Precedent',
-              const Color(0xFF374151),
-              Icons.arrow_back_ios,
-              true,
-              onTap: () => Navigator.of(context).pop(),
+            child: OutlinedButton.icon(
+              onPressed: () => Navigator.of(context).pop(),
+              icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 16),
+              label: const Text('Precedent'),
+              style:OutlinedButton.styleFrom(
+                 padding:  EdgeInsets.symmetric(vertical: 23)),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 12),
           Expanded(
-            flex: 2,
-            child: InkWell(
-              onTap: _addItem,
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF00C7C9).withValues(alpha: 0.1),
-                  border: Border.all(color: const Color(0xFF00C7C9), width: 1.5),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: const [
-                    Icon(Icons.add_circle, color: Color(0xFF00C7C9), size: 18),
-                    SizedBox(width: 8),
-                    Text(
-                      'Ajouter une ligne',
-                      style: TextStyle(color: Color(0xFF00C7C9), fontWeight: FontWeight.bold),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: _buildNavButton(
-              'Suivant',
-              const Color(0xFF374151),
-              Icons.arrow_forward_ios,
-              false,
-              onTap: () {
+            child: FilledButton.icon(
+              onPressed: () {
                 _persistDraft();
                 Navigator.of(context).push(
                   MaterialPageRoute(
@@ -774,6 +609,12 @@ class _DrillingConsumableFormState extends ConsumerState<DrillingConsumableForm>
                   ),
                 );
               },
+              label: const Text('Suivant'),
+              icon: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF1E3A5F),
+                padding: const EdgeInsets.symmetric(vertical: 23),
+              ),
             ),
           ),
         ],
@@ -784,31 +625,65 @@ class _DrillingConsumableFormState extends ConsumerState<DrillingConsumableForm>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF9FAFB),
+      backgroundColor: const Color(0xFFF4F7FB),
       appBar: AppBar(
         title: const Text(
-          'MATERIELS',
-          style: TextStyle(color: Colors.black, fontSize: 30, fontWeight: FontWeight.bold),
+          'Materiels',
+          style: TextStyle(fontWeight: FontWeight.w800),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: const Color(0xFFF4F7FB),
         elevation: 0,
         centerTitle: true,
       ),
-      body: ListView.builder(
-        controller: _scrollController,
-        padding: const EdgeInsets.all(16),
-        itemCount: _items.length + 2,
-        itemBuilder: (context, index) {
-          if (index == 0) {
-            return _buildReferenceStatus();
-          }
-          final rowIndex = index - 1;
-          if (rowIndex == _items.length) {
-            return _buildActionButtons();
-          }
-          return _buildConsumableCard(rowIndex);
-        },
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 920),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildReferenceStatus(),
+                  _buildTopActions(),
+                  const SizedBox(height: 18),
+                  if (_items.isEmpty)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(28),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                      child: Column(
+                        children: const [
+                          Icon(Icons.inventory_2_outlined, size: 42, color: Color(0xFF64748B)),
+                          SizedBox(height: 12),
+                          Text(
+                            'Aucun materiel selectionne',
+                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                          ),
+                          SizedBox(height: 8),
+                          Text(
+                            'Ajoute seulement les materiels utilises sur cette feuille.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Color(0xFF64748B)),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    ...List.generate(_items.length, _buildConsumableCard),
+                  _buildActionButtons(),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
 }
+
+
+

@@ -210,7 +210,7 @@ class _FeuilleListScreenState extends ConsumerState<FeuilleListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Feuilles non synchronisees'),
+        title: const Text('Feuilles a Synchronisées',style: TextStyle(color: Colors.white),),
         centerTitle: true,
         backgroundColor: const Color(0xFFF18E28),
       ),
@@ -235,7 +235,7 @@ class _FeuilleListScreenState extends ConsumerState<FeuilleListScreen> {
           ),
         ),
         child: _items.isEmpty
-            ? const Center(child: Text('Aucune feuille non synchronisee'))
+            ? const Center(child: Text('Aucune feuille disponible'))
             : ListView.builder(
                 padding: const EdgeInsets.only(top: 6, bottom: 24),
                 itemCount: _items.length,

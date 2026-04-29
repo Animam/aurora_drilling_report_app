@@ -1723,7 +1723,7 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          'Drilling Report Summary',
+                          'Resumé du Rapport de Forage',
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 24,

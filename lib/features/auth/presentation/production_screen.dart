@@ -1,4 +1,4 @@
-import 'package:aurora_drilling_report/data/local/db/app_database.dart';
+﻿import 'package:aurora_drilling_report/data/local/db/app_database.dart';
 import 'package:aurora_drilling_report/features/auth/presentation/employee_form_screen.dart';
 import 'package:aurora_drilling_report/features/auth/presentation/fuel_form_screen.dart';
 import 'package:aurora_drilling_report/features/auth/presentation/materiel_form_screen.dart';
@@ -8,6 +8,7 @@ import 'package:aurora_drilling_report/shared/providers/report_draft_provider.da
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 
 class _ProductionTimeLogDraft {
   _ProductionTimeLogDraft({
@@ -364,6 +365,57 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
     return _shiftStartText();
   }
 
+  String _defaultEndText(String startText, {int minutesToAdd = 15}) {
+    final start = _parseHour(startText);
+    if (start == null) {
+      return startText;
+    }
+
+    final startMinutes = (_normalizeForShift(start) * 60).round();
+    final shiftEndMinutes = (_shiftEnd() * 60).round();
+    final targetMinutes = startMinutes + minutesToAdd;
+    final boundedMinutes = targetMinutes > shiftEndMinutes ? shiftEndMinutes : targetMinutes;
+    return _formatHour(boundedMinutes / 60.0);
+  }
+
+  String _adjustEndText(String startText, String currentEndText, int minutesDelta) {
+    final start = _parseHour(startText);
+    if (start == null) {
+      return currentEndText;
+    }
+
+    final currentEnd = _parseHour(currentEndText);
+    final fallbackEnd = _parseHour(_defaultEndText(startText));
+    final startMinutes = (_normalizeForShift(start) * 60).round();
+    final shiftEndMinutes = (_shiftEnd() * 60).round();
+    final baseMinutes = currentEnd != null
+        ? (_normalizeForShift(currentEnd) * 60).round()
+        : (fallbackEnd != null ? (_normalizeForShift(fallbackEnd) * 60).round() : startMinutes);
+    final adjustedMinutes = baseMinutes + minutesDelta;
+    final boundedMinutes = adjustedMinutes < startMinutes
+        ? startMinutes
+        : (adjustedMinutes > shiftEndMinutes ? shiftEndMinutes : adjustedMinutes);
+    return _formatHour(boundedMinutes / 60.0);
+  }
+
+  String _nowWithinShiftText(String startText) {
+    final start = _parseHour(startText);
+    if (start == null) {
+      return _defaultEndText(startText);
+    }
+
+    final now = DateTime.now();
+    final nowValue = now.hour + (now.minute / 60.0);
+    final normalizedNow = _normalizeForShift(nowValue);
+    final startMinutes = (_normalizeForShift(start) * 60).round();
+    final shiftEndMinutes = (_shiftEnd() * 60).round();
+    final nowMinutes = (normalizedNow * 60).round();
+    final boundedMinutes = nowMinutes < startMinutes
+        ? startMinutes
+        : (nowMinutes > shiftEndMinutes ? shiftEndMinutes : nowMinutes);
+    return _formatHour(boundedMinutes / 60.0);
+  }
+
   void _recomputeTotals(_ProductionTimeLogDraft log) {
     final fromValue = double.tryParse(log.fromDe.text.trim().replaceAll(',', '.'));
     final toValue = double.tryParse(log.toA.text.trim().replaceAll(',', '.'));
@@ -453,13 +505,36 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
   }
 
   void _showMessage(String message, {bool isError = true}) {
+    if (isError) {
+      showDialog<void>(
+        context: context,
+        builder: (dialogContext) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: const Text(
+              'Erreur',
+              style: TextStyle(fontWeight: FontWeight.w800),
+            ),
+            content: Text(message),
+            actions: [
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('OK'),
+              ),
+            ],
+          );
+        },
+      );
+      return;
+    }
+
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
           content: Text(message),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: isError ? Colors.redAccent : const Color(0xFF1F7A1F),
+          backgroundColor: const Color(0xFF1F7A1F),
         ),
       );
   }
@@ -532,101 +607,7 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
       return;
     }
 
-    final selectedTask = await showModalBottomSheet<Task>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        var search = '';
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            final filtered = tasks.where((task) {
-              final haystack =
-                  '${task.libelle} ${task.numItem ?? ''} ${task.typeTache ?? ''} ${task.categorieActivity ?? ''}'
-                      .toLowerCase();
-              return haystack.contains(search.toLowerCase());
-            }).toList(growable: false);
-
-            return Container(
-              height: MediaQuery.of(context).size.height * 0.82,
-              decoration: const BoxDecoration(
-                color: Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-              ),
-              child: SafeArea(
-                top: false,
-                child: Column(
-                  children: [
-                    Container(
-                      width: 52,
-                      height: 5,
-                      margin: const EdgeInsets.only(top: 12, bottom: 18),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade400,
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            nohType == null ? 'Activites $category' : 'Activites $category - $nohType',
-                            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
-                          ),
-                          const SizedBox(height: 8),
-                          TextField(
-                            onChanged: (value) => setModalState(() {
-                              search = value;
-                            }),
-                            decoration: InputDecoration(
-                              hintText: 'Rechercher une activite ou un Code',
-                              prefixIcon: const Icon(Icons.search),
-                              filled: true,
-                              fillColor: Colors.white,
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(16),
-                                borderSide: BorderSide.none,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Expanded(
-                      child: ListView.separated(
-                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-                        itemBuilder: (context, index) {
-                          final task = filtered[index];
-                          return Material(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(18),
-                            child: ListTile(
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-                              title: Text(
-                                task.libelle,
-                                style: const TextStyle(fontWeight: FontWeight.w700),
-                              ),
-                              subtitle: Text(task.numItem?.isNotEmpty == true ? 'Code ${task.numItem}' : 'Sans Code'),
-                              trailing: const Icon(Icons.chevron_right_rounded),
-                              onTap: () => Navigator.pop(context, task),
-                            ),
-                          );
-                        },
-                        separatorBuilder: (context, index) => const SizedBox(height: 12),
-                        itemCount: filtered.length,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
+    final selectedTask = await _openTaskDialog(category: category, tasks: tasks, nohType: nohType);
 
     if (selectedTask == null || !mounted) {
       return;
@@ -634,6 +615,102 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
 
     await _openEventEditor(category: category, task: selectedTask, nohType: nohType);
   }
+
+  Future<Task?> _openTaskDialog({
+    required String category,
+    required List<Task> tasks,
+    String? nohType,
+  }) {
+    return showDialog<Task>(
+      context: context,
+      builder: (context) {
+        final controller = TextEditingController();
+        var filtered = List<Task>.from(tasks);
+
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            void applyFilter(String query) {
+              final normalized = query.trim().toLowerCase();
+              setDialogState(() {
+                filtered = tasks.where((task) {
+                  final haystack =
+                      '${task.libelle} ${task.numItem ?? ''} ${task.typeTache ?? ''} ${task.categorieActivity ?? ''}'
+                          .toLowerCase();
+                  return haystack.contains(normalized);
+                }).toList(growable: false);
+              });
+            }
+
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              title: Text(
+                nohType == null ? 'Activites $category' : 'Activites $category - $nohType',
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+              content: SizedBox(
+                width: 560,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      controller: controller,
+                      onChanged: applyFilter,
+                      decoration: InputDecoration(
+                        hintText: 'Rechercher une activite ou un Code',
+                        prefixIcon: const Icon(Icons.search),
+                        filled: true,
+                        fillColor: Colors.white,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    if (filtered.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        child: Text('Aucune activite disponible.'),
+                      )
+                    else
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxHeight: 360),
+                        child: ListView.separated(
+                          shrinkWrap: true,
+                          itemCount: filtered.length,
+                          separatorBuilder: (context, index) => const SizedBox(height: 8),
+                          itemBuilder: (context, index) {
+                            final task = filtered[index];
+                            return Material(
+                              color: const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(16),
+                              child: ListTile(
+                                title: Text(task.libelle, style: const TextStyle(fontWeight: FontWeight.w700)),
+                                subtitle: Text(task.numItem?.isNotEmpty == true ? 'Code ${task.numItem}' : 'Sans Code'),
+                                trailing: const Icon(Icons.chevron_right_rounded),
+                                onTap: () => Navigator.pop(context, task),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Fermer'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
 
   Future<void> _openNohTypeSelector() async {
     final selectedType = await showDialog<String>(
@@ -744,196 +821,462 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
     final effectiveNohType = category == 'NOH'
         ? (nohType ?? (((task.categorieActivity ?? '').trim() == _drillingActivityCode) ? 'DRILLING' : 'AUTRES'))
         : null;
+    final taskCode = (task.numItem ?? '').trim();
     final isNohAutres = category == 'NOH' && effectiveNohType == 'AUTRES';
     final isDown = category == 'DOWN';
     final isStandby = category == 'STANDBY';
+    final isDelay = category == 'DELAY';
+    final isDelayHoleFromToCode = isDelay && (taskCode == '40' || taskCode == '107');
+    final isDelayDistanceCode = isDelay && (taskCode == '50' || taskCode == '51');
     final hideOperationalFields = isNohAutres || isDown || isStandby;
-    final showHoleField = !hideOperationalFields;
-    final showFromToFields = !hideOperationalFields;
-    final showDistanceField = category != 'NOH' && !hideOperationalFields;
 
-    final shouldSave = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            Future<void> pickEndTime() async {
-              final picked = await _pickEndTime(
-                log.heureDebut.text.trim(),
-                currentValue: log.heureFin.text.trim(),
-              );
-              if (picked == null) {
-                return;
-              }
-              setModalState(() {
-                log.heureFin.text = picked;
-                _recomputeTotals(log);
-              });
-            }
+    final showHoleField =
+        isDelay ? isDelayHoleFromToCode : !hideOperationalFields;
+    final showFromToFields =
+        isDelay ? isDelayHoleFromToCode : !hideOperationalFields;
+    final showDistanceField = isDelay
+        ? isDelayDistanceCode
+        : category != 'NOH' && !hideOperationalFields;
+    final useDialogEditor = const {'NOH', 'DOWN', 'DELAY', 'STANDBY'}.contains(category);
 
-            return Container(
-              padding: EdgeInsets.only(
-                left: 20,
-                right: 20,
-                top: 20,
-                bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-              ),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-              ),
-              child: SafeArea(
-                top: false,
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: _categoryColor(category).withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                            child: Text(
-                              category,
-                              style: TextStyle(
-                                color: _categoryColor(category),
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
-                          const Spacer(),
-                          IconButton(
-                            onPressed: () => Navigator.pop(context, false),
-                            icon: const Icon(Icons.close_rounded),
-                          ),
-                        ],
-                      ),
-                      Text(
-                        task.libelle,
-                        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        task.numItem?.isNotEmpty == true ? 'Code ${task.numItem}' : 'Sans Code',
-                        style: TextStyle(color: Colors.grey.shade700),
-                      ),
-                      const SizedBox(height: 20),
-                      Row(
-                        children: [
-                          Expanded(child: _buildReadonlyField('Heure debut', log.heureDebut.text.trim())),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _buildTapField(
-                              label: 'Heure fin',
-                              value: log.heureFin.text.trim().isEmpty ? '--:--' : log.heureFin.text.trim(),
-                              onTap: pickEndTime,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          if (showHoleField)
-                            Expanded(
-                              child: _buildTextField(
-                                controller: log.holeNo,
-                                label: 'Hole No.',
-                              ),
-                            ),
-                          if (showHoleField && showDistanceField) const SizedBox(width: 12),
-                          if (showDistanceField)
-                            Expanded(
-                              child: _buildTextField(
-                                controller: log.distance,
-                                label: 'Distance',
-                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                              ),
-                            ),
-                        ],
-                      ),
-                      if (showHoleField || showDistanceField) const SizedBox(height: 16),
-                      if (showFromToFields)
-                        Row(
+    bool isStepEnabled(String field) {
+      final hasEnd = log.heureFin.text.trim().isNotEmpty && log.heureFin.text.trim() != log.heureDebut.text.trim();
+      final hasHole = log.holeNo.text.trim().isNotEmpty;
+      final hasFrom = log.fromDe.text.trim().isNotEmpty;
+      final hasTo = log.toA.text.trim().isNotEmpty;
+      switch (field) {
+        case 'end':
+          return true;
+        case 'hole':
+          return hasEnd;
+        case 'from':
+          return hasEnd && (!showHoleField || hasHole);
+        case 'to':
+          return hasEnd && (!showHoleField || hasHole) && (!showFromToFields || hasFrom);
+        case 'comment':
+          return hasEnd && (!showHoleField || hasHole) && (!showFromToFields || (hasFrom && hasTo));
+        default:
+          return true;
+      }
+    }
+
+    final shouldSave = await (useDialogEditor
+        ? showDialog<bool>(
+            context: context,
+            builder: (context) {
+              return StatefulBuilder(
+                builder: (context, setModalState) {
+                  Future<void> pickEndTime() async {
+                    final picked = await _pickEndTime(
+                      log.heureDebut.text.trim(),
+                      currentValue: log.heureFin.text.trim(),
+                    );
+                    if (picked == null) {
+                      return;
+                    }
+                    setModalState(() {
+                      log.heureFin.text = picked;
+                      _recomputeTotals(log);
+                    });
+                  }
+
+                  void applyQuickEnd(String value) {
+                    setModalState(() {
+                      log.heureFin.text = value;
+                      _recomputeTotals(log);
+                    });
+                  }
+
+                  return AlertDialog(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                    contentPadding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
+                    content: SizedBox(
+                      width: 620,
+                      child: SingleChildScrollView(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Expanded(
-                              child: _buildTextField(
-                                controller: log.fromDe,
-                                label: 'De',
-                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                onChanged: (_) => setModalState(() => _recomputeTotals(log)),
-                              ),
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: _categoryColor(category).withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                  child: Text(
+                                    category,
+                                    style: TextStyle(
+                                      color: _categoryColor(category),
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ),
+                                const Spacer(),
+                                IconButton(
+                                  onPressed: () => Navigator.pop(context, false),
+                                  icon: const Icon(Icons.close_rounded),
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: _buildTextField(
-                                controller: log.toA,
-                                label: 'A',
-                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                onChanged: (_) => setModalState(() => _recomputeTotals(log)),
+                            Text(
+                              task.libelle,
+                              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              task.numItem?.isNotEmpty == true ? 'Code ${task.numItem}' : 'Sans Code',
+                              style: TextStyle(color: Colors.grey.shade700),
+                            ),
+                            const SizedBox(height: 20),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _buildReadonlyField(
+                                    'Heure debut',
+                                    log.heureDebut.text.trim(),
+                                    inlineLabel: true,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: _buildTapField(
+                                    label: 'Heure fin',
+                                    value: log.heureFin.text.trim().isEmpty ? '--:--' : log.heureFin.text.trim(),
+                                    onTap: pickEndTime,
+                                    inlineLabel: true,
+                                    enabled: true,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                _buildQuickTimeButton('+5', () => applyQuickEnd(_adjustEndText(log.heureDebut.text.trim(), log.heureFin.text.trim(), 5))),
+                                _buildQuickTimeButton('+10', () => applyQuickEnd(_adjustEndText(log.heureDebut.text.trim(), log.heureFin.text.trim(), 10))),
+                                _buildQuickTimeButton('+15', () => applyQuickEnd(_adjustEndText(log.heureDebut.text.trim(), log.heureFin.text.trim(), 15))),
+                                _buildQuickTimeButton('+30', () => applyQuickEnd(_adjustEndText(log.heureDebut.text.trim(), log.heureFin.text.trim(), 30))),
+                                _buildQuickTimeButton('Maintenant', () => applyQuickEnd(_nowWithinShiftText(log.heureDebut.text.trim()))),
+                                _buildQuickTimeButton('Fin shift', () => applyQuickEnd(_shiftEndText())),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              children: [
+                                if (showHoleField)
+                                  Expanded(
+                                    child: _buildTextField(
+                                      controller: log.holeNo,
+                                      label: 'Hole No.',
+                                      onChanged: (_) => setModalState(() {}),
+                                      inlineLabel: true,
+                                      enabled: isStepEnabled('hole'),
+                                    ),
+                                  ),
+                                if (showHoleField && showDistanceField) const SizedBox(width: 12),
+                                if (showDistanceField)
+                                  Expanded(
+                                    child: _buildTextField(
+                                      controller: log.distance,
+                                      label: 'Distance',
+                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
+                                      inlineLabel: true,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            if (showHoleField || showDistanceField) const SizedBox(height: 16),
+                            if (showFromToFields)
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildTextField(
+                                      controller: log.fromDe,
+                                      label: 'De',
+                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
+                                      onChanged: (_) => setModalState(() => _recomputeTotals(log)),
+                                      inlineLabel: true,
+                                      enabled: isStepEnabled('from'),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: _buildTextField(
+                                      controller: log.toA,
+                                      label: 'A',
+                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
+                                      onChanged: (_) => setModalState(() => _recomputeTotals(log)),
+                                      inlineLabel: true,
+                                      enabled: isStepEnabled('to'),
+                                    ),
+                                  ),
+                                ],
                               ),
+                            if (showFromToFields) const SizedBox(height: 16),
+                            _buildTextField(
+                              controller: log.commentaire,
+                              label: 'Commentaire',
+                              maxLines: 1,
+                              inlineLabel: true,
+                              enabled: isStepEnabled('comment'),
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: OutlinedButton(
+                                    onPressed: () => Navigator.pop(context, false),
+                                    child: const Text('Annuler'),
+                                    style: OutlinedButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(vertical: 23)
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: FilledButton(
+                                    onPressed: () {
+                                      if (showHoleField && log.holeNo.text.trim().isEmpty) {
+                                        _showMessage('Hole No. est obligatoire.');
+                                        return;
+                                      }
+                                      if (showFromToFields && log.fromDe.text.trim().isEmpty) {
+                                        _showMessage('De est obligatoire.');
+                                        return;
+                                      }
+                                      if (showFromToFields && log.toA.text.trim().isEmpty) {
+                                        _showMessage('A est obligatoire.');
+                                        return;
+                                      }
+                                      if (showDistanceField && log.distance.text.trim().isEmpty) {
+                                        _showMessage('Distance est obligatoire.');
+                                        return;
+                                      }
+                                      if (showFromToFields) {
+                                        final fromValue = double.tryParse(log.fromDe.text.trim().replaceAll(',', '.'));
+                                        final toValue = double.tryParse(log.toA.text.trim().replaceAll(',', '.'));
+                                        if (fromValue == null || toValue == null) {
+                                          _showMessage('De et A doivent etre numeriques.');
+                                          return;
+                                        }
+                                        if (toValue <= fromValue) {
+                                          _showMessage('A doit etre strictement superieur a De.');
+                                          return;
+                                        }
+                                      }
+                                      if (log.heureDebut.text.trim() == log.heureFin.text.trim()) {
+                                        _showMessage("Heure fin doit etre differente de l'heure debut.");
+                                        return;
+                                      }
+                                      if (!_isEndAllowed(log.heureDebut.text.trim(), log.heureFin.text.trim())) {
+                                        _showMessage(
+                                          'Heure fin hors plage du shift. Reste entre ${_shiftStartText()} et ${_shiftEndText()}.',
+                                        );
+                                        return;
+                                      }
+                                      Navigator.pop(context, true);
+                                    },
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor: _categoryColor(category),
+                                      padding: const EdgeInsets.symmetric(vertical: 23)
+                                    ),
+                                    child: Text(isEditing ? 'Mettre a jour' : 'Valider'),
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
-                      if (showFromToFields) const SizedBox(height: 16),
-                      // const SizedBox(height: 16),
-                      // Row(
-                      //   children: [
-                      //     Expanded(child: _buildReadonlyField('Total', log.total.text.trim().isEmpty ? '-' : log.total.text.trim())),
-                      //     const SizedBox(width: 12),
-                      //     Expanded(child: _buildReadonlyField('Duree', log.duree.text.trim().isEmpty ? '-' : log.duree.text.trim())),
-                      //   ],
-                      // ),
-                      const SizedBox(height: 16),
-                      _buildTextField(
-                        controller: log.commentaire,
-                        label: 'Commentaire',
-                        maxLines: 1,
                       ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton(
-                              onPressed: () => Navigator.pop(context, false),
-                              child: const Text('Annuler'),
+                    ),
+                  );
+                },
+              );
+            },
+          )
+        : showModalBottomSheet<bool>(
+            context: context,
+            isScrollControlled: true,
+            backgroundColor: Colors.transparent,
+            builder: (context) {
+              return StatefulBuilder(
+                builder: (context, setModalState) {
+                  Future<void> pickEndTime() async {
+                    final picked = await _pickEndTime(
+                      log.heureDebut.text.trim(),
+                      currentValue: log.heureFin.text.trim(),
+                    );
+                    if (picked == null) {
+                      return;
+                    }
+                    setModalState(() {
+                      log.heureFin.text = picked;
+                      _recomputeTotals(log);
+                    });
+                  }
+
+                  return Container(
+                    padding: EdgeInsets.only(
+                      left: 20,
+                      right: 20,
+                      top: 20,
+                      bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+                    ),
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                    ),
+                    child: SafeArea(
+                      top: false,
+                      child: SingleChildScrollView(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: _categoryColor(category).withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                  child: Text(
+                                    category,
+                                    style: TextStyle(
+                                      color: _categoryColor(category),
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ),
+                                const Spacer(),
+                                IconButton(
+                                  onPressed: () => Navigator.pop(context, false),
+                                  icon: const Icon(Icons.close_rounded),
+                                ),
+                              ],
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: FilledButton(
-                              onPressed: () {
-                                if (!_isEndAllowed(log.heureDebut.text.trim(), log.heureFin.text.trim())) {
-                                  _showMessage(
-                                    'Heure fin hors plage du shift. Reste entre ${_shiftStartText()} et ${_shiftEndText()}.',
-                                  );
-                                  return;
-                                }
-                                Navigator.pop(context, true);
-                              },
-                              style: FilledButton.styleFrom(
-                                backgroundColor: _categoryColor(category),
+                            Text(
+                              task.libelle,
+                              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              task.numItem?.isNotEmpty == true ? 'Code ${task.numItem}' : 'Sans Code',
+                              style: TextStyle(color: Colors.grey.shade700),
+                            ),
+                            const SizedBox(height: 20),
+                            Row(
+                              children: [
+                                Expanded(child: _buildReadonlyField('Heure debut', log.heureDebut.text.trim())),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: _buildTapField(
+                                    label: 'Heure fin',
+                                    value: log.heureFin.text.trim().isEmpty ? '--:--' : log.heureFin.text.trim(),
+                                    onTap: pickEndTime,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              children: [
+                                if (showHoleField)
+                                  Expanded(
+                                    child: _buildTextField(
+                                      controller: log.holeNo,
+                                      label: 'Hole No.',
+                                    ),
+                                  ),
+                                if (showHoleField && showDistanceField) const SizedBox(width: 12),
+                                if (showDistanceField)
+                                  Expanded(
+                                    child: _buildTextField(
+                                      controller: log.distance,
+                                      label: 'Distance',
+                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            if (showHoleField || showDistanceField) const SizedBox(height: 16),
+                            if (showFromToFields)
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildTextField(
+                                      controller: log.fromDe,
+                                      label: 'De',
+                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
+                                      onChanged: (_) => setModalState(() => _recomputeTotals(log)),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: _buildTextField(
+                                      controller: log.toA,
+                                      label: 'A',
+                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
+                                      onChanged: (_) => setModalState(() => _recomputeTotals(log)),
+                                    ),
+                                  ),
+                                ],
                               ),
-                              child: Text(isEditing ? 'Mettre a jour' : 'Valider'),
+                            if (showFromToFields) const SizedBox(height: 16),
+                            _buildTextField(
+                              controller: log.commentaire,
+                              label: 'Commentaire',
+                              maxLines: 1,
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 16),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: OutlinedButton(
+                                    onPressed: () => Navigator.pop(context, false),
+                                    child: const Text('Annuler'),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: FilledButton(
+                                    onPressed: () {
+                                      if (!_isEndAllowed(log.heureDebut.text.trim(), log.heureFin.text.trim())) {
+                                        _showMessage(
+                                          'Heure fin hors plage du shift. Reste entre ${_shiftStartText()} et ${_shiftEndText()}.',
+                                        );
+                                        return;
+                                      }
+                                      Navigator.pop(context, true);
+                                    },
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor: _categoryColor(category),
+                                    ),
+                                    child: Text(isEditing ? 'Mettre a jour' : 'Valider'),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
+                    ),
+                  );
+                },
+              );
+            },
+          ));
 
     if (shouldSave != true || !mounted) {
       if (!isEditing) {
@@ -1025,7 +1368,31 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
     }
   }
 
-  Widget _buildReadonlyField(String label, String value) {
+  Widget _buildReadonlyField(String label, String value, {bool inlineLabel = false}) {
+    if (inlineLabel) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF3F6FB),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              value,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1056,7 +1423,48 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
     required String label,
     required String value,
     required VoidCallback onTap,
+    bool inlineLabel = false,
+    bool enabled = true,
   }) {
+    if (inlineLabel) {
+      return InkWell(
+        onTap: enabled ? onTap : null,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: enabled ? Colors.white : const Color(0xFFE5E7EB),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFD5DCE6)),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      value,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: enabled ? Colors.black87 : const Color(0xFF9CA3AF),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.schedule_rounded, color: enabled ? null : const Color(0xFF9CA3AF)),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1089,13 +1497,50 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
     );
   }
 
+  Widget _buildQuickTimeButton(String label, VoidCallback onTap) {
+    return ActionChip(
+      label: Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
+      onPressed: onTap,
+      backgroundColor: const Color(0xFFF3F6FB),
+      side: const BorderSide(color: Color(0xFFD5DCE6)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    );
+  }
+
   Widget _buildTextField({
     required TextEditingController controller,
     required String label,
     TextInputType? keyboardType,
     ValueChanged<String>? onChanged,
     int maxLines = 1,
+    bool inlineLabel = false,
+    List<TextInputFormatter>? inputFormatters,
+    bool enabled = true,
   }) {
+    if (inlineLabel) {
+      return TextField(
+        controller: controller,
+        keyboardType: keyboardType,
+        onChanged: enabled ? onChanged : null,
+        maxLines: maxLines,
+        inputFormatters: inputFormatters,
+        enabled: enabled,
+        decoration: InputDecoration(
+          hintText: label,
+          filled: true,
+          fillColor: enabled ? Colors.white : const Color(0xFFE5E7EB),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide.none,
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(color: Color(0xFF1E3A5F)),
+          ),
+        ),
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1104,11 +1549,13 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
         TextField(
           controller: controller,
           keyboardType: keyboardType,
-          onChanged: onChanged,
+          onChanged: enabled ? onChanged : null,
           maxLines: maxLines,
+          inputFormatters: inputFormatters,
+          enabled: enabled,
           decoration: InputDecoration(
             filled: true,
-            fillColor: Colors.white,
+            fillColor: enabled ? Colors.white : const Color(0xFFE5E7EB),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
               borderSide: BorderSide.none,
@@ -1240,82 +1687,79 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
   }
 
   Widget _buildCategoryButtons() {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: _categories.length,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 14,
-        mainAxisSpacing: 14,
-        childAspectRatio: 1.65,
-      ),
-      itemBuilder: (context, index) {
+    return Row(
+      children: List.generate(_categories.length, (index) {
         final category = _categories[index];
         final count = _timeLogs.where((row) => row.category == category).length;
-        return InkWell(
-          onTap: () {
-            if (category == 'NOH') {
-              _openNohTypeSelector();
-              return;
-            }
-            _openTaskSelector(category);
-          },
-          borderRadius: BorderRadius.circular(24),
-          child: Ink(
-            decoration: BoxDecoration(
-              color: _categoryColor(category),
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: _categoryColor(category).withValues(alpha: 0.26),
-                  blurRadius: 18,
-                  offset: const Offset(0, 10),
+        return Expanded(
+          child: Padding(
+            padding: EdgeInsets.only(right: index == _categories.length - 1 ? 0 : 10),
+            child: InkWell(
+              onTap: () {
+                if (category == 'NOH') {
+                  _openNohTypeSelector();
+                  return;
+                }
+                _openTaskSelector(category);
+              },
+              borderRadius: BorderRadius.circular(18),
+              child: Ink(
+                decoration: BoxDecoration(
+                  color: _categoryColor(category),
+                  borderRadius: BorderRadius.circular(18),
+                  boxShadow: [
+                    BoxShadow(
+                      color: _categoryColor(category).withValues(alpha: 0.18),
+                      blurRadius: 12,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Container(
-                        width: 42,
-                        height: 42,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.18),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: const Icon(Icons.bolt_rounded, color: Colors.white),
+                      Row(
+                        children: [
+                          Container(
+                            width: 26,
+                            height: 26,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.18),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.bolt_rounded, color: Colors.white, size: 14),
+                          ),
+                          const Spacer(),
+                          Text(
+                            '$count',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
                       ),
-                      const Spacer(),
+                      const SizedBox(height: 10),
                       Text(
-                        '$count',
+                        category,
+                        textAlign: TextAlign.center,
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
                         ),
                       ),
                     ],
                   ),
-                  Text(
-                    category,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 24,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           ),
         );
-      },
+      }),
     );
   }
 
@@ -1411,10 +1855,10 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                 runSpacing: 8,
                 children: [
                   if (log.codeTache.text.trim().isNotEmpty) _smallMeta('Code ${log.codeTache.text.trim()}'),
-                  if (log.holeNo.text.trim().isNotEmpty) _smallMeta('Hole ${log.holeNo.text.trim()}'),
-                  if (log.duree.text.trim().isNotEmpty) _smallMeta('Duree ${log.duree.text.trim()}'),
-                  if (log.total.text.trim().isNotEmpty) _smallMeta('Total ${log.total.text.trim()}'),
-                  if (log.distance.text.trim().isNotEmpty) _smallMeta('Dist. ${log.distance.text.trim()}'),
+                  if (log.holeNo.text.trim().isNotEmpty) _smallMeta('Hole NO : ${log.holeNo.text.trim()}'),
+                  if (log.duree.text.trim().isNotEmpty) _smallMeta('Duree : ${log.duree.text.trim()}'),
+                  if (log.total.text.trim().isNotEmpty) _smallMeta('Total : ${log.total.text.trim()}'),
+                  if (log.distance.text.trim().isNotEmpty) _smallMeta('Dist.: ${log.distance.text.trim()}'),
                 ],
               ),
               if (log.commentaire.text.trim().isNotEmpty) ...[
@@ -1455,6 +1899,12 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                 onPressed: () => Navigator.of(context).pop(),
                 icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 16),
                 label: const Text('Contexte'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 23),
+                  textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                  side: const BorderSide(color: Color(0xFFCBD5E1)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
               ),
             ),
             const SizedBox(width: 12),
@@ -1463,7 +1913,12 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                 onPressed: _goToPersonnel,
                 icon: const Icon(Icons.groups_2_outlined),
                 label: const Text('Personnel'),
-                style: FilledButton.styleFrom(backgroundColor: const Color(0xFF1E3A5F)),
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF1E3A5F),
+                  padding: const EdgeInsets.symmetric(vertical: 23),
+                  textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
               ),
             ),
           ],
@@ -1476,6 +1931,12 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                 onPressed: _goToMateriel,
                 icon: const Icon(Icons.inventory_2_outlined),
                 label: const Text('Materiel'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 23),
+                  textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                  side: const BorderSide(color: Color(0xFFCBD5E1)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
               ),
             ),
             const SizedBox(width: 12),
@@ -1483,7 +1944,13 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
               child: OutlinedButton.icon(
                 onPressed: _goToFuel,
                 icon: const Icon(Icons.local_gas_station_outlined),
-                label: const Text('Fuel'),
+                label: const Text('Equipement Auxilliere'),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 23),
+                  textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                  side: const BorderSide(color: Color(0xFFCBD5E1)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
               ),
             ),
           ],
@@ -1497,7 +1964,9 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
             label: const Text('Recapitulatif'),
             style: FilledButton.styleFrom(
               backgroundColor: const Color(0xFFE58A1F),
-              padding: const EdgeInsets.symmetric(vertical: 16),
+              padding: const EdgeInsets.symmetric(vertical: 25),
+              textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
             ),
           ),
         ),
@@ -1531,7 +2000,7 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                         _buildContextCard(),
                         const SizedBox(height: 24),
                         const Text(
-                          'Categories d activite',
+                          'Categories d\'activite',
                           style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
                         ),
                         const SizedBox(height: 14),
@@ -1554,3 +2023,12 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
     );
   }
 }
+
+
+
+
+
+
+
+
+

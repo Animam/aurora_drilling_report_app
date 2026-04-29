@@ -28,7 +28,44 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _loading = false;
   bool _obscurePassword = true;
 
+  Future<void> _showErrorDialog(String message) async {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: const Text(
+            'Erreur',
+            style: TextStyle(fontWeight: FontWeight.w800),
+          ),
+          content: Text(message),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Future<void> _login() async {
+    final login = _loginController.text.trim();
+    final password = _passwordController.text;
+
+    if (login.isEmpty) {
+      await _showErrorDialog('Email obligatoire');
+      return;
+    }
+
+    if (password.isEmpty) {
+      await _showErrorDialog('Mot de passe obligatoire');
+      return;
+    }
+
     setState(() {
       _loading = true;
     });
@@ -38,8 +75,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       final authApi = ref.read(authApiProvider);
       final loginResult = await authApi.login(
         db: _dbController.text.trim(),
-        login: _loginController.text.trim(),
-        password: _passwordController.text,
+        login: login,
+        password: password,
       );
 
       final companyId = loginResult['company_id'] as int?;
@@ -81,23 +118,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     } catch (e) {
       final message = e.toString().replaceFirst('Exception: ', '');
       if (mounted) {
-        final screenWidth = MediaQuery.of(context).size.width;
-        final contentWidth = screenWidth > 808 ? 760.0 : screenWidth - 48;
-        final horizontalMargin = ((screenWidth - contentWidth) / 2).clamp(24.0, double.infinity);
-
-        ScaffoldMessenger.of(context)
-          ..hideCurrentSnackBar()
-          ..showSnackBar(
-            SnackBar(
-              content: Text(message),
-              backgroundColor: Colors.redAccent,
-              behavior: SnackBarBehavior.floating,
-              margin: EdgeInsets.fromLTRB(horizontalMargin, 12, horizontalMargin, 24),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(18),
-              ),
-            ),
-          );
+        await _showErrorDialog(message);
       }
     } finally {
       if (mounted) {
@@ -206,17 +227,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
                           
                           const SizedBox(height: 16),
-                          _buildLabel('Email'),
+                          _buildLabel('Utilisateur'),
                           _buildTextField(
                             controller: _loginController,
-                            hint: 'Email Address',
-                            icon: Icons.email_outlined,
+                            hint: 'Entrez nom utilisateur',
+                            icon: Icons.person_2,
                           ),
                           const SizedBox(height: 18),
-                          _buildLabel('Password'),
+                          _buildLabel('Mot de Passe'),
                           _buildTextField(
                             controller: _passwordController,
-                            hint: 'Enter Password',
+                            hint: 'Entrez Mot de Passe',
                             icon: Icons.lock_outline,
                             isPassword: true,
                             obscureText: _obscurePassword,
@@ -254,14 +275,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                       mainAxisAlignment: MainAxisAlignment.center,
                                       children: [
                                         Text(
-                                          'Log In',
+                                          'Se Connecter',
                                           style: TextStyle(
                                             fontSize: 17,
                                             fontWeight: FontWeight.w800,
                                           ),
                                         ),
-                                        SizedBox(width: 10),
-                                        Icon(Icons.arrow_forward_rounded, size: 20),
+                                        
                                       ],
                                     ),
                             ),

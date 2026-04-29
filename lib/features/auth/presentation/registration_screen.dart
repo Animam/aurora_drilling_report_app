@@ -202,7 +202,7 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
         _dateController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Renseigne Quart, Foreuse, Location et Date.'),
+          content: Text('Renseignez Quart, Foreuse, Location et Date.'),
         ),
       );
       return;
@@ -250,9 +250,9 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
       child: Text(
         text,
         style: const TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-          color: Color(0xFF2D3748),
+          fontSize: 16,
+          fontWeight: FontWeight.bold,
+          color: Colors.black,
         ),
       ),
     );
@@ -263,6 +263,7 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
     required T? value,
     required List<DropdownMenuItem<T>> items,
     required ValueChanged<T?> onChanged,
+    bool enabled = true,
   }) {
     return Container(
       decoration: const BoxDecoration(
@@ -277,7 +278,7 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
         isExpanded: true,
         decoration: _inputDecoration(),
         items: items,
-        onChanged: onChanged,
+        onChanged: enabled ? onChanged : null,
       ),
     );
   }
@@ -326,7 +327,7 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
               style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
-                fontSize: 12,
+                fontSize: 16,
               ),
             ),
             if (!isLeading) Icon(icon, color: Colors.white, size: 12),
@@ -367,18 +368,26 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
         borderSide: const BorderSide(color: Color(0xFFCBD5E0)),
         borderRadius: BorderRadius.circular(4),
       ),
+      disabledBorder: OutlineInputBorder(
+        borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+        borderRadius: BorderRadius.circular(4),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final quartEnabled = _selectedForeuseOdooId != null;
+    final locationEnabled = quartEnabled && (_selectedQuart?.trim().isNotEmpty ?? false);
+    final dateEnabled = locationEnabled && _selectedLocationOdooId != null;
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text(
           'RAPPORT DE FORAGE',
           style: TextStyle(
-            color: Colors.black87,
+            color: Colors.black,
             fontSize: 18,
             fontWeight: FontWeight.bold,
           ),
@@ -389,79 +398,111 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(20.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (_error != null) ...[
-                    Text(
-                      _error!,
-                      style: const TextStyle(color: Colors.red),
+          : Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 760),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Card(
+                    elevation: 8,
+                    shadowColor: const Color(0x14000000),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(24),
                     ),
-                    const SizedBox(height: 20),
-                  ],
-                  _buildLabel('Foreuse *'),
-                  _buildDropdownField<int>(
-                    hint: 'Choisissez...',
-                    value: _selectedForeuseOdooId,
-                    items: _foreuses
-                        .map(
-                          (item) => DropdownMenuItem<int>(
-                            value: item.odooId,
-                            child: Text(item.name),
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Contexte feuille',
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF1F2937),
+                            ),
                           ),
-                        )
-                        .toList(),
-                    onChanged: (value) {
-                      setState(() => _selectedForeuseOdooId = value);
-                      ref.read(reportDraftProvider.notifier).setForeuseOdooId(value);
-                      _applyAutoQuartFromSelection(force: true);
-                    },
-                  ),
-                  const SizedBox(height: 25),
-                  _buildLabel('Quart/Shift *'),
-                  _buildDropdownField<String>(
-                    hint: 'Choisissez...',
-                    value: _selectedQuart,
-                    items: _quartOptions
-                        .map(
-                          (item) => DropdownMenuItem<String>(
-                            value: item,
-                            child: Text(item),
+                          
+                          const SizedBox(height: 20),
+                          if (_error != null) ...[
+                            Text(
+                              _error!,
+                              style: const TextStyle(color: Colors.red),
+                            ),
+                            const SizedBox(height: 20),
+                          ],
+                          _buildLabel('Foreuse *'),
+                          _buildDropdownField<int>(
+                            hint: 'Choisissez...',
+                            value: _selectedForeuseOdooId,
+                            items: _foreuses
+                                .map(
+                                  (item) => DropdownMenuItem<int>(
+                                    value: item.odooId,
+                                    child: Text(item.name),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (value) {
+                              setState(() => _selectedForeuseOdooId = value);
+                              ref.read(reportDraftProvider.notifier).setForeuseOdooId(value);
+                              _applyAutoQuartFromSelection(force: true);
+                            },
                           ),
-                        )
-                        .toList(),
-                    onChanged: (value) {
-                      setState(() => _selectedQuart = value);
-                      ref.read(reportDraftProvider.notifier).setQuart(value);
-                    },
-                  ),
-                  const SizedBox(height: 25),
-                  
-                  _buildLabel('Location *'),
-                  _buildDropdownField<int>(
-                    hint: 'Choisissez...',
-                    value: _selectedLocationOdooId,
-                    items: _locations
-                        .map(
-                          (item) => DropdownMenuItem<int>(
-                            value: item.odooId,
-                            child: Text(item.name),
+                          const SizedBox(height: 25),
+                          _buildLabel('Quart/Shift *'),
+                          _buildDropdownField<String>(
+                            hint: quartEnabled ? 'Choisissez...' : 'Selectionnez d abord la foreuse',
+                            value: _selectedQuart,
+                            enabled: quartEnabled,
+                            items: _quartOptions
+                                .map(
+                                  (item) => DropdownMenuItem<String>(
+                                    value: item,
+                                    child: Text(item),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (value) {
+                              setState(() => _selectedQuart = value);
+                              ref.read(reportDraftProvider.notifier).setQuart(value);
+                            },
                           ),
-                        )
-                        .toList(),
-                    onChanged: (value) {
-                      setState(() => _selectedLocationOdooId = value);
-                      ref.read(reportDraftProvider.notifier).setLocationOdooId(value);
-                    },
+                          const SizedBox(height: 25),
+                          _buildLabel('Location *'),
+                          _buildDropdownField<int>(
+                            hint: locationEnabled ? 'Choisissez...' : 'Selectionnez d abord le quart',
+                            value: _selectedLocationOdooId,
+                            enabled: locationEnabled,
+                            items: _locations
+                                .map(
+                                  (item) => DropdownMenuItem<int>(
+                                    value: item.odooId,
+                                    child: Text(item.name),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (value) {
+                              setState(() => _selectedLocationOdooId = value);
+                              ref.read(reportDraftProvider.notifier).setLocationOdooId(value);
+                            },
+                          ),
+                          const SizedBox(height: 25),
+                          _buildLabel('Date *'),
+                          AbsorbPointer(
+                            absorbing: !dateEnabled,
+                            child: Opacity(
+                              opacity: dateEnabled ? 1 : 0.55,
+                              child: _buildDateField(),
+                            ),
+                          ),
+                          const SizedBox(height: 25),
+                          _buildActionButtons(),
+                        ],
+                      ),
+                    ),
                   ),
-                  const SizedBox(height: 25),
-                  _buildLabel('Date *'),
-                  _buildDateField(),
-                  const SizedBox(height: 25),
-                  _buildActionButtons(),
-                ],
+                ),
               ),
             ),
     );

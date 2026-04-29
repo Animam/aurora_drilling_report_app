@@ -48,7 +48,7 @@ class Tasks extends Table {
   TextColumn get typeActivite => text().nullable()();
   TextColumn get updatedAt => text().nullable()();
 }
-
+ 
 class Locations extends Table {
   IntColumn get localId => integer().autoIncrement()();
   IntColumn get odooId => integer().unique()();
