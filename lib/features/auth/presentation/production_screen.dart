@@ -1361,7 +1361,7 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
       case 'DELAY':
         return const Color(0xFFE58A1F);
       case 'STANDBY':
-        return const Color.fromARGB(255, 152, 192, 92);
+        return const Color.fromARGB(255, 216, 203, 28);
       case 'NOH':
       default:
         return const Color(0xFF0F9D8A);

@@ -576,6 +576,31 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
     return feuilleLocalId;
   }
 
+
+  Future<void> _showSuccessDialog(String message) async {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: const Text(
+            'Succes',
+            style: TextStyle(fontWeight: FontWeight.w800),
+          ),
+          content: Text(message),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Future<void> _saveAllLocally() async {
     setState(() {
       _saving = true;
@@ -588,15 +613,14 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
         return;
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            widget.openedFromList
-                ? 'Feuille locale mise a jour'
-                : 'Feuille enregistree localement',
-          ),
-        ),
+      await _showSuccessDialog(
+        widget.openedFromList
+            ? 'Feuille locale mise a jour'
+            : 'Feuille enregistree localement',
       );
+      if (!mounted) {
+        return;
+      }
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => const PostLoginMenuScreen()),
         (route) => false,
@@ -853,11 +877,13 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
         return;
       }
 
+      await _showSuccessDialog('Synchronisation reussie');
+      if (!mounted) {
+        return;
+      }
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(
-          builder: (_) => const PostLoginMenuScreen(
-            initialMessage: 'Synchronisation reussie',
-          ),
+          builder: (_) => const PostLoginMenuScreen(),
         ),
         (route) => false,
       );
@@ -1015,53 +1041,6 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
             child,
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildEditableHeaderField(String label, TextEditingController controller, {bool emphasize = false, TextInputType? keyboardType}) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 150,
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: emphasize ? FontWeight.w700 : FontWeight.w600,
-                color: emphasize ? const Color(0xFF18243E) : const Color(0xFF69758C),
-              ),
-            ),
-          ),
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFD6DFEB)),
-              ),
-              child: TextField(
-                controller: controller,
-                keyboardType: keyboardType,
-                onChanged: (_) => _persistMeterFields(),
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF1A2740),
-                ),
-                decoration: const InputDecoration(
-                  hintText: 'Renseigner ici',
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  isDense: true,
-                ),
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -1969,9 +1948,9 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
           _buildHeaderField('Foreuse / Drill', _foreuse?.name ?? '--', emphasize: true),
           _buildHeaderField('Superviseur', _superviseurName),
           _buildHeaderField('Operateur', _operateurNames),
-          _buildEditableHeaderField(
+          _buildHeaderField(
             'Fuel meter / Compteur carburant',
-            _fuelMeterController,
+            _fuelMeterController.text.trim().isEmpty ? '--' : _fuelMeterController.text.trim(),
             emphasize: true,
           ),
         ],
@@ -1983,11 +1962,10 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
         _buildHeaderField('Date de forage', draft.dateText ?? '--', emphasize: true),
         _buildHeaderField('Location', _location?.name ?? '--', emphasize: true),
         _buildHeaderField('Total meters drill', '$_totalMetersDrill'),
-        _buildEditableHeaderField(
+        _buildHeaderField(
           'Hour meter / Compteur horaire',
-          _hourMeterController,
+          _hourMeterController.text.trim().isEmpty ? '--' : _hourMeterController.text.trim(),
           emphasize: true,
-          keyboardType: TextInputType.number,
         ),
         _buildHeaderField('Compteur d\'horaires de forage', _totalHours),
         _buildHeaderField('Fuel supplied / Carburant approvisionne', _formatFuel(_totalFuel)),

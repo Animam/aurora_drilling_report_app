@@ -2,6 +2,7 @@ import 'package:aurora_drilling_report/data/local/db/app_database.dart';
 import 'package:aurora_drilling_report/shared/providers/app_providers.dart';
 import 'package:aurora_drilling_report/shared/providers/report_draft_provider.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
@@ -21,6 +22,8 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
   int? _selectedForeuseOdooId;
   int? _selectedLocationOdooId;
   final TextEditingController _dateController = TextEditingController();
+  final TextEditingController _fuelMeterController = TextEditingController();
+  final TextEditingController _hourMeterController = TextEditingController();
 
   List<Project> _projects = [];
   List<Equipment> _foreuses = [];
@@ -37,12 +40,16 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
     _selectedForeuseOdooId = draft.foreuseOdooId;
     _selectedLocationOdooId = draft.locationOdooId;
     _dateController.text = draft.dateText ?? DateFormat('dd/MM/yyyy').format(DateTime.now());
+    _fuelMeterController.text = draft.fuelMeter;
+    _hourMeterController.text = draft.hourMeter;
     Future.microtask(_loadReferenceData);
   }
 
   @override
   void dispose() {
     _dateController.dispose();
+    _fuelMeterController.dispose();
+    _hourMeterController.dispose();
     super.dispose();
   }
 
@@ -199,10 +206,11 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
     if (_selectedQuart == null ||
         _selectedForeuseOdooId == null ||
         _selectedLocationOdooId == null ||
-        _dateController.text.trim().isEmpty) {
+        _dateController.text.trim().isEmpty ||
+        _hourMeterController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Renseignez Quart, Foreuse, Location et Date.'),
+          content: Text('Renseignez Quart, Foreuse, Location, Date et Compteur horaire.'),
         ),
       );
       return;
@@ -223,6 +231,8 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
     draftNotifier.setForeuseOdooId(_selectedForeuseOdooId);
     draftNotifier.setLocationOdooId(_selectedLocationOdooId);
     draftNotifier.setDateText(_dateController.text.trim());
+    draftNotifier.setFuelMeter(_fuelMeterController.text.trim());
+    draftNotifier.setHourMeter(_hourMeterController.text.trim());
     draftNotifier.setProjectData(
       projectOdooId: project.odooId,
       projectDateDJ: project.dateDJ,
@@ -304,6 +314,76 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
     );
   }
 
+
+  Widget _buildShiftButtons({required bool enabled}) {
+    return Opacity(
+      opacity: enabled ? 1 : 0.55,
+      child: Row(
+        children: _quartOptions.map((quart) {
+          final selected = _selectedQuart == quart;
+          return Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(right: quart == _quartOptions.last ? 0 : 12),
+              child: InkWell(
+                onTap: enabled
+                    ? () {
+                        setState(() => _selectedQuart = quart);
+                        ref.read(reportDraftProvider.notifier).setQuart(quart);
+                      }
+                    : null,
+                borderRadius: BorderRadius.circular(14),
+                child: Ink(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  decoration: BoxDecoration(
+                    color: selected ? const Color(0xFF1E3A5F) : const Color(0xFFF7FAFC),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: selected ? const Color(0xFF1E3A5F) : const Color(0xFFE2E8F0),
+                    ),
+                  ),
+                  child: Center(
+                    child: Text(
+                      quart == 'Day/Jour' ? 'Jour' : 'Nuit',
+                      style: TextStyle(
+                        color: selected ? Colors.white : const Color(0xFF374151),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }).toList(growable: false),
+      ),
+    );
+  }
+
+  Widget _buildOptionalTextField({
+    required TextEditingController controller,
+    required String hint,
+    required ValueChanged<String> onChanged,
+    bool enabled = true,
+  }) {
+    return Container(
+      decoration: const BoxDecoration(
+        border: Border(left: BorderSide(color: Colors.red, width: 4)),
+      ),
+      child: TextFormField(
+        controller: controller,
+        enabled: enabled,
+        keyboardType: TextInputType.number,
+        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+        onChanged: onChanged,
+        style: const TextStyle(fontSize: 14, color: Colors.black87),
+        decoration: _inputDecoration().copyWith(
+          hintText: hint,
+        ),
+      ),
+    );
+  }
+
   Widget _buildNavButton(
     String label,
     Color color,
@@ -380,6 +460,7 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
     final quartEnabled = _selectedForeuseOdooId != null;
     final locationEnabled = quartEnabled && (_selectedQuart?.trim().isNotEmpty ?? false);
     final dateEnabled = locationEnabled && _selectedLocationOdooId != null;
+    final meterEnabled = dateEnabled;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -451,23 +532,7 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                           ),
                           const SizedBox(height: 25),
                           _buildLabel('Quart/Shift *'),
-                          _buildDropdownField<String>(
-                            hint: quartEnabled ? 'Choisissez...' : 'Selectionnez d abord la foreuse',
-                            value: _selectedQuart,
-                            enabled: quartEnabled,
-                            items: _quartOptions
-                                .map(
-                                  (item) => DropdownMenuItem<String>(
-                                    value: item,
-                                    child: Text(item),
-                                  ),
-                                )
-                                .toList(),
-                            onChanged: (value) {
-                              setState(() => _selectedQuart = value);
-                              ref.read(reportDraftProvider.notifier).setQuart(value);
-                            },
-                          ),
+                          _buildShiftButtons(enabled: quartEnabled),
                           const SizedBox(height: 25),
                           _buildLabel('Location *'),
                           _buildDropdownField<int>(
@@ -495,6 +560,22 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                               opacity: dateEnabled ? 1 : 0.55,
                               child: _buildDateField(),
                             ),
+                          ),
+                          const SizedBox(height: 25),
+                          _buildLabel('Hour meter / Compteur horaire *'),
+                          _buildOptionalTextField(
+                            controller: _hourMeterController,
+                            hint: meterEnabled ? 'Obligatoire' : 'Selectionnez d abord la date',
+                            enabled: meterEnabled,
+                            onChanged: (value) => ref.read(reportDraftProvider.notifier).setHourMeter(value.trim()),
+                          ),
+                          const SizedBox(height: 25),
+                           _buildLabel('Fuel meter / Compteur carburant'),
+                          _buildOptionalTextField(
+                            controller: _fuelMeterController,
+                            hint: meterEnabled ? 'Optionnel' : 'Selectionnez d abord la date',
+                            enabled: meterEnabled,
+                            onChanged: (value) => ref.read(reportDraftProvider.notifier).setFuelMeter(value.trim()),
                           ),
                           const SizedBox(height: 25),
                           _buildActionButtons(),

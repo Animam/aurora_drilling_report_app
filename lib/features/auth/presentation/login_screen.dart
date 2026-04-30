@@ -21,7 +21,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   final _dbController = TextEditingController(text: 'aurora_db');
   final _loginController = TextEditingController(
-    text: 'parfait.sedogo@resolve-consulting.net',
+    text: 'aurora@drilling.com',
   );
   final _passwordController = TextEditingController();
 
