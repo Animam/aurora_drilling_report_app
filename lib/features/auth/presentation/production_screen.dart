@@ -887,6 +887,16 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                     });
                   }
 
+                  Future<void> openMateriel() async {
+                    await Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const DrillingConsumableForm()),
+                    );
+                    if (!mounted) {
+                      return;
+                    }
+                    setModalState(() {});
+                  }
+
                   return AlertDialog(
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
                     contentPadding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
@@ -962,6 +972,13 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                                 _buildQuickTimeButton('+30', () => applyQuickEnd(_adjustEndText(log.heureDebut.text.trim(), log.heureFin.text.trim(), 30))),
                                 _buildQuickTimeButton('Maintenant', () => applyQuickEnd(_nowWithinShiftText(log.heureDebut.text.trim()))),
                                 _buildQuickTimeButton('Fin shift', () => applyQuickEnd(_shiftEndText())),
+                                _buildQuickTimeButton(
+                                  'Materiel',
+                                  openMateriel,
+                                  backgroundColor: const Color(0xFF1E3A5F),
+                                  foregroundColor: Colors.white,
+                                  borderColor: const Color(0xFF1E3A5F),
+                                ),
                               ],
                             ),
                             const SizedBox(height: 16),
@@ -1497,12 +1514,24 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
     );
   }
 
-  Widget _buildQuickTimeButton(String label, VoidCallback onTap) {
+  Widget _buildQuickTimeButton(
+    String label,
+    VoidCallback onTap, {
+    Color backgroundColor = const Color(0xFFF3F6FB),
+    Color foregroundColor = const Color(0xFF1F2937),
+    Color borderColor = const Color(0xFFD5DCE6),
+  }) {
     return ActionChip(
-      label: Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
+      label: Text(
+        label,
+        style: TextStyle(
+          fontWeight: FontWeight.w700,
+          color: foregroundColor,
+        ),
+      ),
       onPressed: onTap,
-      backgroundColor: const Color(0xFFF3F6FB),
-      side: const BorderSide(color: Color(0xFFD5DCE6)),
+      backgroundColor: backgroundColor,
+      side: BorderSide(color: borderColor),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     );
   }
