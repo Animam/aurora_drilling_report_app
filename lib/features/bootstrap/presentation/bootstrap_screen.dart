@@ -29,6 +29,14 @@ Future<void> ensureReferenceData(WidgetRef ref) async {
   final materials = (result['materials'] as List<dynamic>? ?? [])
       .map((e) => Map<String, dynamic>.from(e as Map))
       .toList();
+  final rawProjectDrillingTaskMap =
+      Map<String, dynamic>.from(result['project_drilling_task_map'] as Map? ?? const {});
+  final projectDrillingTaskMap = rawProjectDrillingTaskMap.map((key, value) {
+    final ids = (value as List<dynamic>? ?? const [])
+        .map((item) => (item as num).toInt())
+        .toList(growable: false);
+    return MapEntry(key, ids);
+  });
 
   await db.clearReferenceData();
   await db.saveProjects(projects);
@@ -37,6 +45,7 @@ Future<void> ensureReferenceData(WidgetRef ref) async {
   await db.saveTasks(tasks);
   await db.saveLocations(locations);
   await db.saveMaterialReferences(materials);
+  await ref.read(projectDrillingTaskStoreProvider).replaceMap(projectDrillingTaskMap);
 }
 
 

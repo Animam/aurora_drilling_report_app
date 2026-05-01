@@ -133,6 +133,8 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
 
   final List<_ProductionTimeLogDraft> _timeLogs = [];
   List<Task> _tasks = [];
+  List<MaterialReference> _materialReferences = const [];
+  List<int> _projectDrillingTaskIds = const [];
   Project? _project;
   Equipment? _foreuse;
   Location? _location;
@@ -159,7 +161,12 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
     final projects = await db.getAllProjects();
     final equipments = await db.getAllEquipments();
     final locations = await db.getAllLocations();
+    final materialReferences = await db.getAllMaterialReferences();
+    materialReferences.sort((a, b) => a.description.toLowerCase().compareTo(b.description.toLowerCase()));
     final draft = ref.read(reportDraftProvider);
+    final projectDrillingTaskIds = await ref
+        .read(projectDrillingTaskStoreProvider)
+        .getTaskIdsForProject(widget.projectOdooId);
 
     final sameContext =
         draft.projectOdooId == widget.projectOdooId &&
@@ -185,6 +192,8 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
 
     setState(() {
       _tasks = tasks;
+      _materialReferences = materialReferences;
+      _projectDrillingTaskIds = projectDrillingTaskIds;
       _project = _findByOdooId<Project>(projects, widget.projectOdooId, (item) => item.odooId);
       _foreuse = _findByOdooId<Equipment>(equipments, widget.foreuseOdooId, (item) => item.odooId);
       _location = _findByOdooId<Location>(locations, widget.locationOdooId, (item) => item.odooId);
@@ -282,7 +291,10 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
       if (category == 'NOH' && nohType != null) {
         final activityCode = (task.categorieActivity ?? '').trim();
         if (nohType == 'DRILLING') {
-          return activityCode == _drillingActivityCode;
+          if (activityCode != _drillingActivityCode) {
+            return false;
+          }
+          return _projectDrillingTaskIds.contains(task.odooId);
         }
         return activityCode != _drillingActivityCode;
       }
@@ -294,6 +306,132 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
     ref.read(reportDraftProvider.notifier).setTimeLogs(
           _timeLogs.map((row) => row.toReportDraft()).toList(growable: false),
         );
+  }
+
+  bool _isMaterialAlreadyAdded(int materialOdooId) {
+    final materielLogs = ref.read(reportDraftProvider).materielLogs;
+    return materielLogs.any((item) => item.materialOdooId == materialOdooId);
+  }
+
+  Future<bool> _openQuickMaterialPicker() async {
+    final selectedMaterial = await showDialog<MaterialReference>(
+      context: context,
+      builder: (context) {
+        final controller = TextEditingController();
+        var filtered = _materialReferences
+            .where((material) => !_isMaterialAlreadyAdded(material.odooId))
+            .toList(growable: false);
+
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            void applyFilter(String query) {
+              final normalized = query.trim().toLowerCase();
+              setDialogState(() {
+                filtered = _materialReferences.where((material) {
+                  if (_isMaterialAlreadyAdded(material.odooId)) {
+                    return false;
+                  }
+                  if (normalized.isEmpty) {
+                    return true;
+                  }
+                  final haystack = '${material.reference ?? ''} ${material.description}'.toLowerCase();
+                  return haystack.contains(normalized);
+                }).toList(growable: false);
+              });
+            }
+
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              title: const Text(
+                'Ajouter un materiel',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+              content: SizedBox(
+                width: 560,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      controller: controller,
+                      onChanged: applyFilter,
+                      decoration: InputDecoration(
+                        hintText: 'Rechercher par reference ou description',
+                        prefixIcon: const Icon(Icons.search),
+                        filled: true,
+                        fillColor: Colors.white,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    if (filtered.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        child: Text('Aucun materiel disponible.'),
+                      )
+                    else
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxHeight: 360),
+                        child: ListView.separated(
+                          shrinkWrap: true,
+                          itemCount: filtered.length,
+                          separatorBuilder: (context, index) => const SizedBox(height: 8),
+                          itemBuilder: (context, index) {
+                            final material = filtered[index];
+                            return Material(
+                              color: const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(16),
+                              child: ListTile(
+                                title: Text(
+                                  material.reference?.isNotEmpty == true ? material.reference! : '--',
+                                  style: const TextStyle(fontWeight: FontWeight.w800),
+                                ),
+                                subtitle: Text(material.description),
+                                trailing: const Icon(Icons.add_circle_outline_rounded),
+                                onTap: () => Navigator.pop(context, material),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Fermer'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (selectedMaterial == null) {
+      return false;
+    }
+
+    final draft = ref.read(reportDraftProvider);
+    if (_isMaterialAlreadyAdded(selectedMaterial.odooId)) {
+      return false;
+    }
+
+    final updatedMaterielLogs = [
+      ...draft.materielLogs,
+      ReportMaterielDraft(
+        materialOdooId: selectedMaterial.odooId,
+        description: selectedMaterial.description,
+        serie: selectedMaterial.reference ?? '',
+      ),
+    ];
+
+    ref.read(reportDraftProvider.notifier).setMaterielLogs(updatedMaterielLogs);
+    return true;
   }
 
   double? _parseHour(String value) {
@@ -888,10 +1026,8 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                   }
 
                   Future<void> openMateriel() async {
-                    await Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const DrillingConsumableForm()),
-                    );
-                    if (!mounted) {
+                    final added = await _openQuickMaterialPicker();
+                    if (!mounted || !added) {
                       return;
                     }
                     setModalState(() {});
