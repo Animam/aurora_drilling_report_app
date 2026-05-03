@@ -20,9 +20,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   static const _muted = Color(0xFF69758C);
 
   final _dbController = TextEditingController(text: 'aurora_db');
-  final _loginController = TextEditingController(
-    text: 'aurora@drilling.com',
-  );
+  final _loginController = TextEditingController();
   final _passwordController = TextEditingController();
 
   bool _loading = false;

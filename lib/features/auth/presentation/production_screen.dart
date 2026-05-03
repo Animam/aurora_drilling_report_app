@@ -130,6 +130,7 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
     'STANDBY': '4',
   };
   static const String _drillingActivityCode = '3';
+  static const String _specialActivityCode = '5';
 
   final List<_ProductionTimeLogDraft> _timeLogs = [];
   List<Task> _tasks = [];
@@ -288,8 +289,15 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
         return false;
       }
 
+      final activityCode = (task.categorieActivity ?? '').trim();
+      final activityLabel = (task.typeActivite ?? '').trim().toLowerCase();
+      final isSpecialActivity = activityCode == _specialActivityCode || activityLabel == 'special';
+
+      if ((category == 'DELAY' || category == 'STANDBY') && isSpecialActivity) {
+        return false;
+      }
+
       if (category == 'NOH' && nohType != null) {
-        final activityCode = (task.categorieActivity ?? '').trim();
         if (nohType == 'DRILLING') {
           if (activityCode != _drillingActivityCode) {
             return false;
@@ -311,6 +319,104 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
   bool _isMaterialAlreadyAdded(int materialOdooId) {
     final materielLogs = ref.read(reportDraftProvider).materielLogs;
     return materielLogs.any((item) => item.materialOdooId == materialOdooId);
+  }
+
+  Future<String?> _pickQuickMaterialQuantity() async {
+    final controller = TextEditingController(text: '1');
+
+    final quantity = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            void updateQuantity(int delta) {
+              final currentVal = int.tryParse(controller.text) ?? 0;
+              final nextVal = currentVal + delta;
+              if (nextVal < 0) {
+                return;
+              }
+              setDialogState(() {
+                controller.text = nextVal.toString();
+              });
+            }
+
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              title: const Text(
+                'Quantite',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+              content: SizedBox(
+                width: 320,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        border: Border.all(color: const Color(0xFFE5E7EB)),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: IntrinsicHeight(
+                        child: Row(
+                          children: [
+                            Container(width: 4, color: const Color(0xFF1E3A5F)),
+                            IconButton(
+                              visualDensity: VisualDensity.compact,
+                              icon: const Icon(Icons.remove, size: 18, color: Colors.redAccent),
+                              onPressed: () => updateQuantity(-1),
+                            ),
+                            Expanded(
+                              child: TextField(
+                                controller: controller,
+                                autofocus: true,
+                                textAlign: TextAlign.center,
+                                keyboardType: TextInputType.number,
+                                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                                decoration: const InputDecoration(
+                                  hintText: 'Quantite',
+                                  border: InputBorder.none,
+                                  isDense: true,
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              visualDensity: VisualDensity.compact,
+                              icon: const Icon(Icons.add, size: 18, color: Colors.green),
+                              onPressed: () => updateQuantity(1),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Annuler'),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    final value = controller.text.trim();
+                    if (value.isEmpty || value == '0') {
+                      return;
+                    }
+                    Navigator.pop(context, value);
+                  },
+                  child: const Text('Valider'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    controller.dispose();
+    return quantity;
   }
 
   Future<bool> _openQuickMaterialPicker() async {
@@ -416,6 +522,11 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
       return false;
     }
 
+    final quantity = await _pickQuickMaterialQuantity();
+    if (quantity == null) {
+      return false;
+    }
+
     final draft = ref.read(reportDraftProvider);
     if (_isMaterialAlreadyAdded(selectedMaterial.odooId)) {
       return false;
@@ -427,6 +538,7 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
         materialOdooId: selectedMaterial.odooId,
         description: selectedMaterial.description,
         serie: selectedMaterial.reference ?? '',
+        quantite: quantity,
       ),
     ];
 
@@ -966,6 +1078,8 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
     final isDelay = category == 'DELAY';
     final isDelayHoleFromToCode = isDelay && (taskCode == '40' || taskCode == '107');
     final isDelayDistanceCode = isDelay && (taskCode == '50' || taskCode == '51');
+    final isDelayChangeBit = isDelay && taskCode == '41';
+    final isDelayChangeHammer = isDelay && taskCode == '42';
     final hideOperationalFields = isNohAutres || isDown || isStandby;
 
     final showHoleField =
@@ -1031,6 +1145,23 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                       return;
                     }
                     setModalState(() {});
+                  }
+
+                  Future<void> showPendingFeature(String label) async {
+                    await showDialog<void>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                        title: Text(label),
+                        content: const Text('Fonction en attente de parametrage.'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('OK'),
+                          ),
+                        ],
+                      ),
+                    );
                   }
 
                   return AlertDialog(
@@ -1115,6 +1246,22 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                                   foregroundColor: Colors.white,
                                   borderColor: const Color(0xFF1E3A5F),
                                 ),
+                                if (isDelayChangeBit)
+                                  _buildQuickTimeButton(
+                                    'Taillant',
+                                    () => showPendingFeature('Taillant'),
+                                    backgroundColor: const Color(0xFF2457C5),
+                                    foregroundColor: Colors.white,
+                                    borderColor: const Color(0xFF2457C5),
+                                  ),
+                                if (isDelayChangeHammer)
+                                  _buildQuickTimeButton(
+                                    'Marteau',
+                                    () => showPendingFeature('Marteau'),
+                                    backgroundColor: const Color(0xFF2457C5),
+                                    foregroundColor: Colors.white,
+                                    borderColor: const Color(0xFF2457C5),
+                                  ),
                               ],
                             ),
                             const SizedBox(height: 16),
@@ -1793,7 +1940,7 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                 ),
                 Expanded(
                   child: _buildShiftMetric(
-                    'Heure courante',
+                    'Derniere activité',
                     _timeLogs.isEmpty ? _shiftStartText() : _timeLogs.last.heureFin.text.trim(),
                   ),
                 ),

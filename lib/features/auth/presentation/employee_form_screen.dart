@@ -78,11 +78,20 @@ class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
   final List<_StaffLogDraft> _staffLogs = [];
   List<Employee> _availableEmployees = [];
   bool _loading = true;
+  static const Map<String, Set<String>> _roleFilters = {
+    'Superviseur': {'superviseur'},
+    'Foreur': {'foreur'},
+    'Aide Foreur': {'aide-foreur', 'aide foreur'},
+    'Aprenti aide foreur': {'apprenti aide foreur', 'apprenti aide-foreur'},
+  };
+
   static const Set<String> _allowedJobs = {
     'superviseur',
     'foreur',
     'aide-foreur',
+    'aide foreur',
     'apprenti aide foreur',
+    'apprenti aide-foreur',
   };
 
   @override
@@ -307,14 +316,22 @@ class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
     return _staffLogs.any((log) => log.employeeOdooId == employeeOdooId);
   }
 
-  Future<void> _openAddEmployeeDialog() async {
+  Future<void> _openAddEmployeeDialog({String? roleLabel}) async {
+    final roleFilter = roleLabel == null ? null : _roleFilters[roleLabel];
     final selectedEmployee = await showDialog<Employee>(
       context: context,
       builder: (context) {
         final controller = TextEditingController();
-        var filtered = _availableEmployees
-            .where((employee) => !_isEmployeeAlreadyAdded(employee.odooId))
-            .toList(growable: false);
+        var filtered = _availableEmployees.where((employee) {
+          if (_isEmployeeAlreadyAdded(employee.odooId)) {
+            return false;
+          }
+          if (roleFilter == null) {
+            return true;
+          }
+          final jobName = (employee.jobName ?? '').trim().toLowerCase();
+          return roleFilter.contains(jobName);
+        }).toList(growable: false);
 
         return StatefulBuilder(
           builder: (context, setDialogState) {
@@ -323,6 +340,10 @@ class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
               setDialogState(() {
                 filtered = _availableEmployees.where((employee) {
                   if (_isEmployeeAlreadyAdded(employee.odooId)) {
+                    return false;
+                  }
+                  final jobName = (employee.jobName ?? '').trim().toLowerCase();
+                  if (roleFilter != null && !roleFilter.contains(jobName)) {
                     return false;
                   }
                   if (normalized.isEmpty) {
@@ -336,9 +357,9 @@ class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
 
             return AlertDialog(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-              title: const Text(
-                'Ajouter un employe',
-                style: TextStyle(fontWeight: FontWeight.w800),
+              title: Text(
+                roleLabel == null ? 'Ajouter un employe' : 'Ajouter un employe - $roleLabel',
+                style: const TextStyle(fontWeight: FontWeight.w800),
               ),
               content: SizedBox(
                 width: 520,
@@ -661,16 +682,36 @@ class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
             style: const TextStyle(color: Color(0xFF64748B)),
           ),
           const SizedBox(height: 14),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: _openAddEmployeeDialog,
-              icon: const Icon(Icons.person_add_alt_1_rounded),
-              label: const Text('Ajouter un employe'),
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF1E3A5F),
-                padding: const EdgeInsets.symmetric(vertical: 23),
-              ),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: const Color(0xFFD7DFEA)),
+            ),
+            child: Row(
+              children: _roleFilters.keys.map((roleLabel) {
+                return Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: FilledButton(
+                      onPressed: () => _openAddEmployeeDialog(roleLabel: roleLabel),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: const Color(0xFF1E3A5F),
+                        padding: const EdgeInsets.symmetric(vertical: 20),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: Text(
+                        roleLabel,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(growable: false),
             ),
           ),
         ],

@@ -35,6 +35,7 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
   Project? _project;
   Equipment? _foreuse;
   Location? _location;
+  List<Task> _tasks = const [];
   bool _loading = true;
   bool _saving = false;
   bool _syncing = false;
@@ -86,6 +87,7 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
     final projects = await db.getAllProjects();
     final equipments = await db.getAllEquipments();
     final locations = await db.getAllLocations();
+    final tasks = await db.getAllTasks();
 
     if (!mounted) {
       return;
@@ -95,6 +97,7 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
       _project = _findByOdooId<Project>(projects, draft.projectOdooId, (item) => item.odooId);
       _foreuse = _findByOdooId<Equipment>(equipments, draft.foreuseOdooId, (item) => item.odooId);
       _location = _findByOdooId<Location>(locations, draft.locationOdooId, (item) => item.odooId);
+      _tasks = tasks;
       _loading = false;
     });
   }
@@ -601,12 +604,44 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
     );
   }
 
+  Future<void> _showErrorDialog(String message) async {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: const Text(
+            'Erreur',
+            style: TextStyle(fontWeight: FontWeight.w800),
+          ),
+          content: Text(message),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  bool get _isQuarterDurationComplete => _totalHours == '12:00';
+
   Future<void> _saveAllLocally() async {
     setState(() {
       _saving = true;
     });
 
     try {
+      if (!_isQuarterDurationComplete) {
+        await _showErrorDialog('Duree de quart imcomplete');
+        return;
+      }
+
       await _saveAllLocallyInternal();
 
       if (!mounted) {
@@ -759,6 +794,11 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
     });
 
     try {
+      if (!_isQuarterDurationComplete) {
+        await _showErrorDialog('Duree de quart imcomplete');
+        return;
+      }
+
       final feuilleLocalId = await _saveAllLocallyInternal();
       final db = ref.read(appDatabaseProvider);
       final syncApi = ref.read(syncApiProvider);
@@ -917,6 +957,31 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
     return hasDecimals ? value.toStringAsFixed(2) : value.toStringAsFixed(0);
   }
 
+  bool _isNohDrillingRow(ReportTimeLogDraft row) {
+    if (row.selectedTaskOdooId == null) {
+      return false;
+    }
+    final task = _findByOdooId<Task>(_tasks, row.selectedTaskOdooId, (item) => item.odooId);
+    if (task == null) {
+      return false;
+    }
+    return (task.categorie ?? '').trim() == '1' && (task.categorieActivity ?? '').trim() == '3';
+  }
+
+  int _parseDurationMinutes(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) {
+      return 0;
+    }
+    final parts = trimmed.split(':');
+    if (parts.length != 2) {
+      return 0;
+    }
+    final hours = int.tryParse(parts[0]) ?? 0;
+    final minutes = int.tryParse(parts[1]) ?? 0;
+    return (hours * 60) + minutes;
+  }
+
   int get _totalMetersDrill {
     final draft = ref.read(reportDraftProvider);
     return draft.timeLogs.fold<int>(0, (sum, row) => sum + _parseInt(row.total));
@@ -925,6 +990,36 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
   double get _totalFuel {
     final draft = ref.read(reportDraftProvider);
     return draft.fuelLogs.fold<double>(0, (sum, row) => sum + _parseDouble(row.qtyFuel));
+  }
+
+  int get _drillingMinutesWithMeterage {
+    final draft = ref.read(reportDraftProvider);
+    var totalMinutes = 0;
+    for (final row in draft.timeLogs) {
+      if (!_isNohDrillingRow(row)) {
+        continue;
+      }
+      if (_parseDouble(row.total) <= 0) {
+        continue;
+      }
+      totalMinutes += _parseDurationMinutes(row.duree);
+    }
+    return totalMinutes;
+  }
+
+  double get _penetrationRate {
+    final drillMinutes = _drillingMinutesWithMeterage;
+    if (drillMinutes <= 0) {
+      return 0.0;
+    }
+    return _totalMetersDrill / (drillMinutes / 60.0);
+  }
+
+  String get _penetrationRateText {
+    if (_penetrationRate <= 0) {
+      return "0";
+    }
+    return '${_penetrationRate.toStringAsFixed(2)} m/h';
   }
 
   String get _totalHours {
@@ -1084,7 +1179,12 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
     );
   }
 
-  Widget _buildSummaryTile(String label, String value, Color color) {
+  Widget _buildSummaryTile(
+    String label,
+    String value,
+    Color color, {
+    String? secondaryValue,
+  }) {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -1116,6 +1216,17 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
               color: Color(0xFF66738A),
             ),
           ),
+          if (secondaryValue != null && secondaryValue.trim().isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              secondaryValue,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF44506A),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -1776,7 +1887,12 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
                         _buildSummaryTile('Employes', '${draft.staffLogs.length}', const Color(0xFFE2802E)),
                         _buildSummaryTile('Materiels', '${draft.materielLogs.length}', const Color(0xFF0F9D8A)),
                         _buildSummaryTile('Equip Aux/Fuel', '${draft.fuelLogs.length}', const Color(0xFF8A3FFC)),
-                        _buildSummaryTile('Metres drill', '$_totalMetersDrill', const Color(0xFFDB4437)),
+                        _buildSummaryTile(
+                          'Metres drill',
+                          '$_totalMetersDrill',
+                          const Color(0xFFDB4437),
+                          secondaryValue: _penetrationRateText == '0' ? null : 'Penetration Rate: $_penetrationRateText',
+                        ),
                         _buildSummaryTile('Heures', _totalHours, const Color(0xFF1F7A8C)),
                         _buildSummaryTile('Fuel total', _formatFuel(_totalFuel), const Color(0xFF6C9A1F)),
                         _buildSummaryTile(
