@@ -37,6 +37,15 @@ Future<void> ensureReferenceData(WidgetRef ref) async {
         .toList(growable: false);
     return MapEntry(key, ids);
   });
+  final rawProjectHoleProgressMap =
+      Map<String, dynamic>.from(result['project_hole_progress_map'] as Map? ?? const {});
+  final projectHoleProgressMap = rawProjectHoleProgressMap.map((key, value) {
+    final holes = Map<String, dynamic>.from(value as Map? ?? const {});
+    return MapEntry(
+      key,
+      holes.map((holeNo, maxValue) => MapEntry(holeNo, (maxValue as num).toInt())),
+    );
+  });
 
   await db.clearReferenceData();
   await db.saveProjects(projects);
@@ -46,6 +55,7 @@ Future<void> ensureReferenceData(WidgetRef ref) async {
   await db.saveLocations(locations);
   await db.saveMaterialReferences(materials);
   await ref.read(projectDrillingTaskStoreProvider).replaceMap(projectDrillingTaskMap);
+  await ref.read(projectHoleProgressStoreProvider).replaceMap(projectHoleProgressMap);
 }
 
 

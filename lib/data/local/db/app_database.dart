@@ -644,6 +644,45 @@ class AppDatabase extends _$AppDatabase {
     });
   }
 
+  Future<int?> getLocalMaxToDimForHole({
+    required int projectOdooId,
+    required String holeNo,
+    int? excludeFeuilleLocalId,
+  }) async {
+    final normalizedHole = holeNo.trim().toLowerCase();
+    if (normalizedHole.isEmpty) {
+      return null;
+    }
+
+    final allProjectFeuilles = await (select(feuilles)..where((tbl) => tbl.nomProjetOdooId.equals(projectOdooId))).get();
+
+    final matchingFeuilles = allProjectFeuilles.where((item) {
+      if (excludeFeuilleLocalId == null) {
+        return true;
+      }
+      return item.localId != excludeFeuilleLocalId;
+    }).toList(growable: false);
+
+    if (matchingFeuilles.isEmpty) {
+      return null;
+    }
+
+    final feuilleIds = matchingFeuilles.map((item) => item.localId).toList(growable: false);
+    final localRows = await (select(feuilleLignes)..where((tbl) => tbl.feuilleLocalId.isIn(feuilleIds))).get();
+
+    int? maxToDim;
+    for (final row in localRows) {
+      final rowHole = (row.holeNo ?? '').trim().toLowerCase();
+      if (rowHole != normalizedHole || row.toDim == null) {
+        continue;
+      }
+      if (maxToDim == null || row.toDim! > maxToDim) {
+        maxToDim = row.toDim!;
+      }
+    }
+    return maxToDim;
+  }
+
   Future<List<Project>> getAllProjects() => select(projects).get();
   Future<List<Employee>> getAllEmployees() => select(employees).get();
   Future<List<Equipment>> getAllEquipments() => select(equipments).get();

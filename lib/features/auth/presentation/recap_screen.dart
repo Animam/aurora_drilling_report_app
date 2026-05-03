@@ -1916,6 +1916,7 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
                         projectDateDN: draft.projectDateDN,
                         foreuseOdooId: draft.foreuseOdooId ?? 0,
                         locationOdooId: draft.locationOdooId ?? 0,
+                        currentFeuilleLocalId: _currentFeuilleLocalId,
                       ),
                     ),
                     child: _buildTimeLogsSection(),
@@ -2064,11 +2065,7 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
           _buildHeaderField('Foreuse / Drill', _foreuse?.name ?? '--', emphasize: true),
           _buildHeaderField('Superviseur', _superviseurName),
           _buildHeaderField('Operateur', _operateurNames),
-          _buildHeaderField(
-            'Fuel meter / Compteur carburant',
-            _fuelMeterController.text.trim().isEmpty ? '--' : _fuelMeterController.text.trim(),
-            emphasize: true,
-          ),
+         
         ],
       );
     }
@@ -2083,7 +2080,12 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
           _hourMeterController.text.trim().isEmpty ? '--' : _hourMeterController.text.trim(),
           emphasize: true,
         ),
-        _buildHeaderField('Compteur d\'horaires de forage', _totalHours),
+         _buildHeaderField(
+            'Fuel meter / Compteur carburant',
+            _fuelMeterController.text.trim().isEmpty ? '--' : _fuelMeterController.text.trim(),
+            emphasize: true,
+          ),
+        // _buildHeaderField('Compteur d\'horaires de forage', _totalHours),
         _buildHeaderField('Fuel supplied / Carburant approvisionne', _formatFuel(_totalFuel)),
       ],
     );

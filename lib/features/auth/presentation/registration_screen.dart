@@ -249,6 +249,7 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
           projectDateDN: project.dateDN,
           foreuseOdooId: _selectedForeuseOdooId!,
           locationOdooId: _selectedLocationOdooId!,
+          currentFeuilleLocalId: null,
         ),
       ),
     );

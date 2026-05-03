@@ -107,6 +107,7 @@ class ProductionScreen extends ConsumerStatefulWidget {
     required this.projectDateDN,
     required this.foreuseOdooId,
     required this.locationOdooId,
+    this.currentFeuilleLocalId,
   });
 
   final String quart;
@@ -116,6 +117,7 @@ class ProductionScreen extends ConsumerStatefulWidget {
   final double? projectDateDN;
   final int foreuseOdooId;
   final int locationOdooId;
+  final int? currentFeuilleLocalId;
 
   @override
   ConsumerState<ProductionScreen> createState() => _ProductionScreenState();
@@ -136,6 +138,7 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
   List<Task> _tasks = [];
   List<MaterialReference> _materialReferences = const [];
   List<int> _projectDrillingTaskIds = const [];
+  Map<String, int> _projectHoleProgressMap = const {};
   Project? _project;
   Equipment? _foreuse;
   Location? _location;
@@ -168,6 +171,9 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
     final projectDrillingTaskIds = await ref
         .read(projectDrillingTaskStoreProvider)
         .getTaskIdsForProject(widget.projectOdooId);
+    final projectHoleProgressMap = await ref
+        .read(projectHoleProgressStoreProvider)
+        .getHoleProgressForProject(widget.projectOdooId);
 
     final sameContext =
         draft.projectOdooId == widget.projectOdooId &&
@@ -195,6 +201,7 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
       _tasks = tasks;
       _materialReferences = materialReferences;
       _projectDrillingTaskIds = projectDrillingTaskIds;
+      _projectHoleProgressMap = projectHoleProgressMap;
       _project = _findByOdooId<Project>(projects, widget.projectOdooId, (item) => item.odooId);
       _foreuse = _findByOdooId<Equipment>(equipments, widget.foreuseOdooId, (item) => item.odooId);
       _location = _findByOdooId<Location>(locations, widget.locationOdooId, (item) => item.odooId);
@@ -314,6 +321,83 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
     ref.read(reportDraftProvider.notifier).setTimeLogs(
           _timeLogs.map((row) => row.toReportDraft()).toList(growable: false),
         );
+  }
+
+  bool _isDrillingLog(_ProductionTimeLogDraft log) {
+    final task = _findTaskByLog(log);
+    if (task == null) {
+      return false;
+    }
+    return (task.categorie ?? '').trim() == _categoryCodes['NOH'] &&
+        (task.categorieActivity ?? '').trim() == _drillingActivityCode;
+  }
+
+  int? _maxToDimFromCurrentDraft(String holeNo, {int? excludeIndex}) {
+    final normalizedHole = holeNo.trim().toLowerCase();
+    if (normalizedHole.isEmpty) {
+      return null;
+    }
+
+    int? maxToDim;
+    for (var index = 0; index < _timeLogs.length; index++) {
+      if (excludeIndex != null && index == excludeIndex) {
+        continue;
+      }
+      final row = _timeLogs[index];
+      if (!_isDrillingLog(row)) {
+        continue;
+      }
+      if (row.holeNo.text.trim().toLowerCase() != normalizedHole) {
+        continue;
+      }
+      final toDim = int.tryParse(row.toA.text.trim());
+      if (toDim == null) {
+        continue;
+      }
+      if (maxToDim == null || toDim > maxToDim) {
+        maxToDim = toDim;
+      }
+    }
+    return maxToDim;
+  }
+
+  Future<int?> _maxToDimForHole(String holeNo, {int? excludeIndex}) async {
+    final normalizedHole = holeNo.trim();
+    if (normalizedHole.isEmpty) {
+      return null;
+    }
+
+    final values = <int>[];
+    int? serverMax;
+    for (final entry in _projectHoleProgressMap.entries) {
+      if (entry.key.trim().toLowerCase() == normalizedHole.toLowerCase()) {
+        serverMax = entry.value;
+        break;
+      }
+    }
+    if (serverMax != null) {
+      values.add(serverMax);
+    }
+
+    final localMax = await ref.read(appDatabaseProvider).getLocalMaxToDimForHole(
+          projectOdooId: widget.projectOdooId,
+          holeNo: normalizedHole,
+          excludeFeuilleLocalId: widget.currentFeuilleLocalId,
+        );
+    if (localMax != null) {
+      values.add(localMax);
+    }
+
+    final draftMax = _maxToDimFromCurrentDraft(normalizedHole, excludeIndex: excludeIndex);
+    if (draftMax != null) {
+      values.add(draftMax);
+    }
+
+    if (values.isEmpty) {
+      return null;
+    }
+    values.sort();
+    return values.last;
   }
 
   bool _isMaterialAlreadyAdded(int materialOdooId) {
@@ -1342,7 +1426,7 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: FilledButton(
-                                    onPressed: () {
+                                    onPressed: () async {
                                       if (showHoleField && log.holeNo.text.trim().isEmpty) {
                                         _showMessage('Hole No. est obligatoire.');
                                         return;
@@ -1369,6 +1453,18 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                                         if (toValue <= fromValue) {
                                           _showMessage('A doit etre strictement superieur a De.');
                                           return;
+                                        }
+                                        if (category == 'NOH' && effectiveNohType == 'DRILLING' && log.holeNo.text.trim().isNotEmpty) {
+                                          final maxToDim = await _maxToDimForHole(
+                                            log.holeNo.text.trim(),
+                                            excludeIndex: existingIndex,
+                                          );
+                                          if (maxToDim != null && fromValue < maxToDim) {
+                                            _showMessage(
+                                              'Pour le hole ${log.holeNo.text.trim()}, De doit etre superieur ou egal a $maxToDim.',
+                                            );
+                                            return;
+                                          }
                                         }
                                       }
                                       if (log.heureDebut.text.trim() == log.heureFin.text.trim()) {
