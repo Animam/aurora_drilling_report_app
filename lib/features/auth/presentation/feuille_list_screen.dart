@@ -56,11 +56,11 @@ class _FeuilleListScreenState extends ConsumerState<FeuilleListScreen> {
     return trimmed;
   }
 
-  Widget _buildInfoChip(IconData icon, String label) {
+  Widget _buildInfoChip(IconData icon, String label, {required bool isDraft}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.10),
+        color: isDraft ? const Color(0xFF7A1E16) : Colors.white.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(999),
         border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
       ),
@@ -82,12 +82,19 @@ class _FeuilleListScreenState extends ConsumerState<FeuilleListScreen> {
     );
   }
 
+  Future<void> _deleteDraftFeuille(int feuilleLocalId) async {
+    final db = ref.read(appDatabaseProvider);
+    await db.deleteFeuilleCascade(feuilleLocalId);
+    await _load();
+  }
+
   Widget _buildFeuilleCard(Feuille item) {
     final foreuseName =
         item.foreuseOdooId != null ? (_equipmentNames[item.foreuseOdooId!] ?? '--') : '--';
     final locationName =
         item.locationOdooId != null ? (_locationNames[item.locationOdooId!] ?? '--') : '--';
     final isOpening = _openingFeuilleLocalId == item.localId;
+    final isDraft = item.syncStatus == 'draft';
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
@@ -121,10 +128,12 @@ class _FeuilleListScreenState extends ConsumerState<FeuilleListScreen> {
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(28),
-            gradient: const LinearGradient(
+            gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Color(0xFF27456F), Color(0xFF172D4D)],
+              colors: isDraft
+                  ? const [Color(0xFFFCE8E6), Color(0xFFF9D7D2)]
+                  : const [Color(0xFF27456F), Color(0xFF172D4D)],
             ),
             boxShadow: [
               BoxShadow(
@@ -142,7 +151,29 @@ class _FeuilleListScreenState extends ConsumerState<FeuilleListScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    if (isOpening)
+                    if (isDraft)
+                      Container(
+                        margin: const EdgeInsets.only(right: 10),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFB3261E).withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: const Text(
+                          'Brouillon',
+                          style: TextStyle(
+                            color: Color(0xFFB3261E),
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    if (isDraft)
+                      IconButton(
+                        onPressed: () => _deleteDraftFeuille(item.localId),
+                        icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFB3261E)),
+                        tooltip: 'Supprimer',
+                      )
+                    else if (isOpening)
                       const SizedBox(
                         width: 22,
                         height: 22,
@@ -160,10 +191,10 @@ class _FeuilleListScreenState extends ConsumerState<FeuilleListScreen> {
                   spacing: 12,
                   runSpacing: 12,
                   children: [
-                    _buildInfoChip(Icons.badge_outlined, item.quart),
-                    _buildInfoChip(Icons.precision_manufacturing_outlined, foreuseName),
-                    _buildInfoChip(Icons.location_on_outlined, locationName),
-                    _buildInfoChip(Icons.calendar_today_outlined, _formatDate(item.dateForage)),
+                    _buildInfoChip(Icons.badge_outlined, item.quart, isDraft: isDraft),
+                    _buildInfoChip(Icons.precision_manufacturing_outlined, foreuseName, isDraft: isDraft),
+                    _buildInfoChip(Icons.location_on_outlined, locationName, isDraft: isDraft),
+                    _buildInfoChip(Icons.calendar_today_outlined, _formatDate(item.dateForage), isDraft: isDraft),
                   ],
                 ),
               ],

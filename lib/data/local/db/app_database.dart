@@ -356,6 +356,167 @@ class AppDatabase extends _$AppDatabase {
     });
   }
 
+  Future<int> saveLocalFeuilleDraft({
+    required String mobileUuid,
+    required int nomProjetOdooId,
+    required String quart,
+    required String dateForage,
+    int? foreuseOdooId,
+    int? locationOdooId,
+    int? hourMeter,
+    String? fuelMeter,
+    String? forageSignature,
+    String? clientSignature,
+    String? remarks,
+    String syncStatus = 'draft',
+    int? existingFeuilleLocalId,
+    int? existingOdooId,
+  }) async {
+    final now = DateTime.now().toIso8601String();
+
+    if (existingFeuilleLocalId != null) {
+      await (update(feuilles)..where((tbl) => tbl.localId.equals(existingFeuilleLocalId))).write(
+        FeuillesCompanion(
+          mobileUuid: Value(mobileUuid),
+          odooId: Value(existingOdooId),
+          nomProjetOdooId: Value(nomProjetOdooId),
+          quart: Value(quart),
+          dateForage: Value(dateForage),
+          foreuseOdooId: Value(foreuseOdooId),
+          locationOdooId: Value(locationOdooId),
+          hourMeter: Value(hourMeter),
+          fuelMeter: Value(fuelMeter),
+          forageSignature: Value(forageSignature),
+          clientSignature: Value(clientSignature),
+          remarks: Value(remarks),
+          syncStatus: Value(syncStatus),
+          updatedAt: Value(now),
+        ),
+      );
+      return existingFeuilleLocalId;
+    }
+
+    return into(feuilles).insert(
+      FeuillesCompanion.insert(
+        mobileUuid: mobileUuid,
+        nomProjetOdooId: nomProjetOdooId,
+        quart: quart,
+        dateForage: dateForage,
+        foreuseOdooId: Value(foreuseOdooId),
+        locationOdooId: Value(locationOdooId),
+        hourMeter: Value(hourMeter),
+        fuelMeter: Value(fuelMeter),
+        forageSignature: Value(forageSignature),
+        clientSignature: Value(clientSignature),
+        remarks: Value(remarks),
+        syncStatus: Value(syncStatus),
+        createdAt: now,
+        updatedAt: now,
+      ),
+    );
+  }
+
+  Future<void> deleteFeuilleCascade(int feuilleLocalId) async {
+    await transaction(() async {
+      await (delete(feuilleLignes)..where((tbl) => tbl.feuilleLocalId.equals(feuilleLocalId))).go();
+      await (delete(feuilleFuels)..where((tbl) => tbl.feuilleLocalId.equals(feuilleLocalId))).go();
+      await (delete(feuilleEmployes)..where((tbl) => tbl.feuilleLocalId.equals(feuilleLocalId))).go();
+      await (delete(feuilleMateriels)..where((tbl) => tbl.feuilleLocalId.equals(feuilleLocalId))).go();
+      await (delete(feuilles)..where((tbl) => tbl.localId.equals(feuilleLocalId))).go();
+    });
+  }
+
+  Future<void> replaceFeuilleLignesDraft({
+    required int feuilleLocalId,
+    required List<Map<String, dynamic>> rows,
+  }) async {
+    await transaction(() async {
+      await (delete(feuilleLignes)..where((tbl) => tbl.feuilleLocalId.equals(feuilleLocalId))).go();
+      for (final row in rows) {
+        await saveLocalFeuilleLigne(
+          feuilleLocalId: feuilleLocalId,
+          mobileUuid: row['mobile_uuid'] as String,
+          item: row['item'] as String,
+          tacheOdooId: row['tache_odoo_id'] as int?,
+          holeNo: row['hole_no'] as String?,
+          note: row['note'] as String?,
+          dateD: row['date_d'] as double?,
+          dateF: row['date_f'] as double?,
+          rr: row['rr'] as double?,
+          distance: row['distance'] as int?,
+          fromDim: row['from_dim'] as int?,
+          toDim: row['to_dim'] as int?,
+          totalDim: row['total_dim'] as int?,
+          sequence: row['sequence'] as int?,
+        );
+      }
+    });
+  }
+
+  Future<void> replaceFeuilleEmployesDraft({
+    required int feuilleLocalId,
+    required List<Map<String, dynamic>> rows,
+  }) async {
+    await transaction(() async {
+      await (delete(feuilleEmployes)..where((tbl) => tbl.feuilleLocalId.equals(feuilleLocalId))).go();
+      for (final row in rows) {
+        await saveLocalFeuilleEmploye(
+          feuilleLocalId: feuilleLocalId,
+          mobileUuid: row['mobile_uuid'] as String,
+          employeeOdooId: row['employee_odoo_id'] as int,
+          fonction: row['fonction'] as String?,
+          observation: row['observation'] as String?,
+          dateEmp: row['date_emp'] as String?,
+          dateDebut: row['date_debut'] as String?,
+          dateFin: row['date_fin'] as String?,
+          difference: row['difference'] as double?,
+          absent: row['absent'] as bool? ?? false,
+        );
+      }
+    });
+  }
+
+  Future<void> replaceFeuilleMaterielsDraft({
+    required int feuilleLocalId,
+    required List<Map<String, dynamic>> rows,
+  }) async {
+    await transaction(() async {
+      await (delete(feuilleMateriels)..where((tbl) => tbl.feuilleLocalId.equals(feuilleLocalId))).go();
+      for (final row in rows) {
+        await saveLocalFeuilleMateriel(
+          feuilleLocalId: feuilleLocalId,
+          mobileUuid: row['mobile_uuid'] as String,
+          description: row['description'] as String?,
+          serialNumber: row['serial_number'] as String?,
+          quantity: row['quantity'] as double?,
+          observation: row['observation'] as String?,
+          status: row['status'] as String?,
+        );
+      }
+    });
+  }
+
+  Future<void> replaceFeuilleFuelsDraft({
+    required int feuilleLocalId,
+    required List<Map<String, dynamic>> rows,
+  }) async {
+    await transaction(() async {
+      await (delete(feuilleFuels)..where((tbl) => tbl.feuilleLocalId.equals(feuilleLocalId))).go();
+      for (final row in rows) {
+        await saveLocalFeuilleFuel(
+          feuilleLocalId: feuilleLocalId,
+          mobileUuid: row['mobile_uuid'] as String,
+          compresseurOdooId: row['compresseur_odoo_id'] as int?,
+          qytFuel: row['qyt_fuel'] as double? ?? 0.0,
+          dateDEqui: row['date_d_equi'] as double?,
+          dateFEqui: row['date_f_equi'] as double?,
+          dateDRavi: row['date_d_ravi'] as double?,
+          dateFRavi: row['date_f_ravi'] as double?,
+        );
+      }
+    });
+  }
+
   Future<int> saveLocalFeuille({
     required String mobileUuid,
     required int nomProjetOdooId,
@@ -586,7 +747,7 @@ class AppDatabase extends _$AppDatabase {
 
   Future<List<Feuille>> getPendingFeuilles() {
     return (select(feuilles)
-          ..where((tbl) => tbl.isVisible.equals(true) & tbl.syncStatus.equals('pending'))
+          ..where((tbl) => tbl.isVisible.equals(true) & (tbl.syncStatus.equals('pending') | tbl.syncStatus.equals('draft')))
           ..orderBy([(tbl) => OrderingTerm.desc(tbl.updatedAt)]))
         .get();
   }
@@ -681,6 +842,41 @@ class AppDatabase extends _$AppDatabase {
       }
     }
     return maxToDim;
+  }
+
+  Future<List<String>> getRecentHoleNosByProject({
+    required int projectOdooId,
+    int limit = 3,
+  }) async {
+    final allProjectFeuilles = await (select(feuilles)..where((tbl) => tbl.nomProjetOdooId.equals(projectOdooId))).get();
+    if (allProjectFeuilles.isEmpty) {
+      return const [];
+    }
+
+    final feuilleIds = allProjectFeuilles.map((item) => item.localId).toList(growable: false);
+    final localRows = await (select(feuilleLignes)
+          ..where((tbl) => tbl.feuilleLocalId.isIn(feuilleIds) & tbl.isVisible.equals(true))
+          ..orderBy([(tbl) => OrderingTerm.desc(tbl.updatedAt)]))
+        .get();
+
+    final seen = <String>{};
+    final result = <String>[];
+    for (final row in localRows) {
+      final hole = (row.holeNo ?? '').trim();
+      if (hole.isEmpty) {
+        continue;
+      }
+      final normalized = hole.toLowerCase();
+      if (seen.contains(normalized)) {
+        continue;
+      }
+      seen.add(normalized);
+      result.add(hole);
+      if (result.length >= limit) {
+        break;
+      }
+    }
+    return result;
   }
 
   Future<List<Project>> getAllProjects() => select(projects).get();

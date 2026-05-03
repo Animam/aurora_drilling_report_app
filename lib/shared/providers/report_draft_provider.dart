@@ -102,6 +102,9 @@ class ReportFuelLogDraft {
 
 class ReportDraft {
   const ReportDraft({
+    this.currentFeuilleLocalId,
+    this.currentMobileUuid,
+    this.currentSyncStatus,
     this.quart,
     this.foreuseOdooId,
     this.locationOdooId,
@@ -119,6 +122,9 @@ class ReportDraft {
     this.companySignature = const [],
   });
 
+  final int? currentFeuilleLocalId;
+  final String? currentMobileUuid;
+  final String? currentSyncStatus;
   final String? quart;
   final int? foreuseOdooId;
   final int? locationOdooId;
@@ -136,6 +142,9 @@ class ReportDraft {
   final List<ReportSignaturePointDraft> companySignature;
 
   ReportDraft copyWith({
+    int? currentFeuilleLocalId,
+    String? currentMobileUuid,
+    String? currentSyncStatus,
     String? quart,
     int? foreuseOdooId,
     int? locationOdooId,
@@ -153,6 +162,9 @@ class ReportDraft {
     List<ReportSignaturePointDraft>? companySignature,
   }) {
     return ReportDraft(
+      currentFeuilleLocalId: currentFeuilleLocalId ?? this.currentFeuilleLocalId,
+      currentMobileUuid: currentMobileUuid ?? this.currentMobileUuid,
+      currentSyncStatus: currentSyncStatus ?? this.currentSyncStatus,
       quart: quart ?? this.quart,
       foreuseOdooId: foreuseOdooId ?? this.foreuseOdooId,
       locationOdooId: locationOdooId ?? this.locationOdooId,
@@ -200,6 +212,38 @@ class ReportDraftNotifier extends StateNotifier<ReportDraft> {
       projectOdooId: projectOdooId,
       projectDateDJ: projectDateDJ,
       projectDateDN: projectDateDN,
+    );
+  }
+
+  void setCurrentFeuille({
+    required int feuilleLocalId,
+    required String mobileUuid,
+    required String syncStatus,
+  }) {
+    state = state.copyWith(
+      currentFeuilleLocalId: feuilleLocalId,
+      currentMobileUuid: mobileUuid,
+      currentSyncStatus: syncStatus,
+    );
+  }
+
+  void clearCurrentFeuille() {
+    state = ReportDraft(
+      quart: state.quart,
+      foreuseOdooId: state.foreuseOdooId,
+      locationOdooId: state.locationOdooId,
+      dateText: state.dateText,
+      projectOdooId: state.projectOdooId,
+      projectDateDJ: state.projectDateDJ,
+      projectDateDN: state.projectDateDN,
+      hourMeter: state.hourMeter,
+      fuelMeter: state.fuelMeter,
+      timeLogs: state.timeLogs,
+      staffLogs: state.staffLogs,
+      materielLogs: state.materielLogs,
+      fuelLogs: state.fuelLogs,
+      clientSignature: state.clientSignature,
+      companySignature: state.companySignature,
     );
   }
 

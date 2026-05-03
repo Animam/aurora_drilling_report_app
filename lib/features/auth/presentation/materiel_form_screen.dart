@@ -4,6 +4,7 @@ import 'package:aurora_drilling_report/shared/providers/report_draft_provider.da
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 
 import 'fuel_form_screen.dart';
 
@@ -160,6 +161,33 @@ class _DrillingConsumableFormState extends ConsumerState<DrillingConsumableForm>
   void _persistDraft() {
     ref.read(reportDraftProvider.notifier).setMaterielLogs(
           _items.map((item) => item.toReportDraft()).toList(growable: false),
+        );
+    Future.microtask(_autoSaveMaterielLogs);
+  }
+
+  Future<void> _autoSaveMaterielLogs() async {
+    final draft = ref.read(reportDraftProvider);
+    final feuilleLocalId = draft.currentFeuilleLocalId;
+    if (feuilleLocalId == null) {
+      return;
+    }
+
+    final uuid = const Uuid();
+    final rows = _items
+        .where((item) => item.descriptionController.text.trim().isNotEmpty || item.serie.text.trim().isNotEmpty)
+        .map((item) => <String, dynamic>{
+              'mobile_uuid': uuid.v4(),
+              'description': item.descriptionController.text.trim().isEmpty ? null : item.descriptionController.text.trim(),
+              'serial_number': item.serie.text.trim().isEmpty ? null : item.serie.text.trim(),
+              'quantity': double.tryParse(item.quantite.text.trim()),
+              'observation': item.observation.text.trim().isEmpty ? null : item.observation.text.trim(),
+              'status': item.status.text.trim().isEmpty ? null : item.status.text.trim(),
+            })
+        .toList(growable: false);
+
+    await ref.read(appDatabaseProvider).replaceFeuilleMaterielsDraft(
+          feuilleLocalId: feuilleLocalId,
+          rows: rows,
         );
   }
 

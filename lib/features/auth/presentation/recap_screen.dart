@@ -211,6 +211,11 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
     );
     notifier.setClientSignature(const []);
     notifier.setCompanySignature(const []);
+    notifier.setCurrentFeuille(
+      feuilleLocalId: feuille.localId,
+      mobileUuid: feuille.mobileUuid,
+      syncStatus: feuille.syncStatus,
+    );
 
     _currentFeuilleLocalId = feuille.localId;
     _existingMobileUuid = feuille.mobileUuid;
@@ -245,6 +250,11 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
     final notifier = ref.read(reportDraftProvider.notifier);
     notifier.setHourMeter(_hourMeterController.text.trim());
     notifier.setFuelMeter(_fuelMeterController.text.trim());
+  }
+
+  bool get _canSyncCurrentFeuille {
+    final draft = ref.read(reportDraftProvider);
+    return widget.openedFromList && draft.currentSyncStatus == 'pending';
   }
 
   T? _findByOdooId<T>(List<T> items, int? odooId, int Function(T item) getId) {
@@ -462,11 +472,29 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
 
       if (_currentFeuilleLocalId != null) {
         feuilleLocalId = _currentFeuilleLocalId!;
+        final currentMobileUuid = ref.read(reportDraftProvider).currentMobileUuid ?? _existingMobileUuid ?? uuid.v4();
+        await db.saveLocalFeuilleDraft(
+          existingFeuilleLocalId: feuilleLocalId,
+          existingOdooId: _existingOdooId,
+          mobileUuid: currentMobileUuid,
+          nomProjetOdooId: projectId,
+          quart: quart,
+          dateForage: dateForage,
+          foreuseOdooId: draft.foreuseOdooId,
+          locationOdooId: draft.locationOdooId,
+          hourMeter: _tryParseInt(draft.hourMeter),
+          fuelMeter: draft.fuelMeter.trim().isEmpty ? null : draft.fuelMeter.trim(),
+          forageSignature: forageSignature,
+          clientSignature: clientSignature,
+          remarks: null,
+          syncStatus: 'pending',
+        );
+
         await (db.update(db.feuilles)
               ..where((tbl) => tbl.localId.equals(feuilleLocalId)))
             .write(
           FeuillesCompanion(
-            mobileUuid: Value(_existingMobileUuid ?? uuid.v4()),
+            mobileUuid: Value(currentMobileUuid),
             odooId: Value(_existingOdooId),
             nomProjetOdooId: Value(projectId),
             quart: Value(quart),
@@ -498,8 +526,9 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
               ..where((tbl) => tbl.feuilleLocalId.equals(feuilleLocalId)))
             .go();
       } else {
-        feuilleLocalId = await db.saveLocalFeuille(
-          mobileUuid: uuid.v4(),
+        final currentMobileUuid = ref.read(reportDraftProvider).currentMobileUuid ?? uuid.v4();
+        feuilleLocalId = await db.saveLocalFeuilleDraft(
+          mobileUuid: currentMobileUuid,
           nomProjetOdooId: projectId,
           quart: quart,
           dateForage: dateForage,
@@ -510,8 +539,14 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
           forageSignature: forageSignature,
           clientSignature: clientSignature,
           remarks: null,
+          syncStatus: 'pending',
         );
         _currentFeuilleLocalId = feuilleLocalId;
+        ref.read(reportDraftProvider.notifier).setCurrentFeuille(
+          feuilleLocalId: feuilleLocalId,
+          mobileUuid: currentMobileUuid,
+          syncStatus: 'pending',
+        );
       }
 
       var sequence = 10;
@@ -576,6 +611,11 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
       }
     });
 
+    ref.read(reportDraftProvider.notifier).setCurrentFeuille(
+      feuilleLocalId: feuilleLocalId,
+      mobileUuid: ref.read(reportDraftProvider).currentMobileUuid ?? _existingMobileUuid ?? '',
+      syncStatus: 'pending',
+    );
     return feuilleLocalId;
   }
 
@@ -786,6 +826,10 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
 
   Future<void> _syncCurrentFeuille() async {
     if (_syncing) {
+      return;
+    }
+    if (!_canSyncCurrentFeuille) {
+      await _showErrorDialog('Impossible de synchroniser un brouillon');
       return;
     }
 
@@ -1965,7 +2009,7 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
                           ),
                         ),
                       ),
-                      if (widget.openedFromList) ...[
+                      if (_canSyncCurrentFeuille) ...[
                         const SizedBox(width: 12),
                         Expanded(
                           child: ElevatedButton.icon(

@@ -5,6 +5,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 
 import 'recap_screen.dart';
 
@@ -226,6 +227,34 @@ class _DrillingFuelFormState extends ConsumerState<DrillingFuelForm> {
   void _persistDraft() {
     ref.read(reportDraftProvider.notifier).setFuelLogs(
           _items.map((item) => item.toReportDraft()).toList(growable: false),
+        );
+    Future.microtask(_autoSaveFuelLogs);
+  }
+
+  Future<void> _autoSaveFuelLogs() async {
+    final draft = ref.read(reportDraftProvider);
+    final feuilleLocalId = draft.currentFeuilleLocalId;
+    if (feuilleLocalId == null) {
+      return;
+    }
+
+    final uuid = const Uuid();
+    final rows = _items
+        .where((item) => item.equipmentOdooId != null)
+        .map((item) => <String, dynamic>{
+              'mobile_uuid': uuid.v4(),
+              'compresseur_odoo_id': item.equipmentOdooId,
+              'qyt_fuel': double.tryParse(item.qtyFuel.text.trim()) ?? 0.0,
+              'date_d_equi': _parseHour(item.hDebut.text.trim()),
+              'date_f_equi': _parseHour(item.hFin.text.trim()),
+              'date_d_ravi': _parseHour(item.hDebutRavi.text.trim()),
+              'date_f_ravi': _parseHour(item.hFinRavi.text.trim()),
+            })
+        .toList(growable: false);
+
+    await ref.read(appDatabaseProvider).replaceFeuilleFuelsDraft(
+          feuilleLocalId: feuilleLocalId,
+          rows: rows,
         );
   }
 

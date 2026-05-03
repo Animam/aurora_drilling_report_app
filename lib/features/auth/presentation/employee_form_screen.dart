@@ -4,6 +4,7 @@ import 'package:aurora_drilling_report/shared/providers/report_draft_provider.da
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 
 import 'materiel_form_screen.dart';
 
@@ -136,6 +137,36 @@ class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
   void _persistDraft() {
     ref.read(reportDraftProvider.notifier).setStaffLogs(
           _staffLogs.map((log) => log.toReportDraft()).toList(growable: false),
+        );
+    Future.microtask(_autoSaveStaffLogs);
+  }
+
+  Future<void> _autoSaveStaffLogs() async {
+    final draft = ref.read(reportDraftProvider);
+    final feuilleLocalId = draft.currentFeuilleLocalId;
+    if (feuilleLocalId == null) {
+      return;
+    }
+
+    final uuid = const Uuid();
+    final rows = _staffLogs
+        .where((log) => log.employeeOdooId != null)
+        .map((log) => <String, dynamic>{
+              'mobile_uuid': uuid.v4(),
+              'employee_odoo_id': log.employeeOdooId!,
+              'fonction': log.fonction.text.trim().isEmpty ? null : log.fonction.text.trim(),
+              'observation': log.obs.text.trim().isEmpty ? null : log.obs.text.trim(),
+              'date_emp': draft.dateText,
+              'date_debut': log.hDebut.text.trim().isEmpty ? null : log.hDebut.text.trim(),
+              'date_fin': log.hFin.text.trim().isEmpty ? null : log.hFin.text.trim(),
+              'difference': null,
+              'absent': log.isAbsent,
+            })
+        .toList(growable: false);
+
+    await ref.read(appDatabaseProvider).replaceFeuilleEmployesDraft(
+          feuilleLocalId: feuilleLocalId,
+          rows: rows,
         );
   }
 

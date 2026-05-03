@@ -9,6 +9,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
+import 'package:uuid/uuid.dart';
 
 class _ProductionTimeLogDraft {
   _ProductionTimeLogDraft({
@@ -138,6 +139,7 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
   List<Task> _tasks = [];
   List<MaterialReference> _materialReferences = const [];
   List<int> _projectDrillingTaskIds = const [];
+  List<String> _recentHoleNos = const [];
   Map<String, int> _projectHoleProgressMap = const {};
   Project? _project;
   Equipment? _foreuse;
@@ -174,6 +176,7 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
     final projectHoleProgressMap = await ref
         .read(projectHoleProgressStoreProvider)
         .getHoleProgressForProject(widget.projectOdooId);
+    final recentHoleNos = await db.getRecentHoleNosByProject(projectOdooId: widget.projectOdooId);
 
     final sameContext =
         draft.projectOdooId == widget.projectOdooId &&
@@ -201,6 +204,7 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
       _tasks = tasks;
       _materialReferences = materialReferences;
       _projectDrillingTaskIds = projectDrillingTaskIds;
+      _recentHoleNos = recentHoleNos;
       _projectHoleProgressMap = projectHoleProgressMap;
       _project = _findByOdooId<Project>(projects, widget.projectOdooId, (item) => item.odooId);
       _foreuse = _findByOdooId<Equipment>(equipments, widget.foreuseOdooId, (item) => item.odooId);
@@ -321,6 +325,39 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
     ref.read(reportDraftProvider.notifier).setTimeLogs(
           _timeLogs.map((row) => row.toReportDraft()).toList(growable: false),
         );
+    Future.microtask(_autoSaveTimeLogs);
+  }
+
+  Future<void> _autoSaveTimeLogs() async {
+    final draft = ref.read(reportDraftProvider);
+    final feuilleLocalId = draft.currentFeuilleLocalId;
+    if (feuilleLocalId == null) {
+      return;
+    }
+
+    final uuid = const Uuid();
+    final rows = _timeLogs.map((row) {
+      return <String, dynamic>{
+        'mobile_uuid': uuid.v4(),
+        'item': row.codeTache.text.trim(),
+        'tache_odoo_id': row.selectedTaskOdooId,
+        'hole_no': row.holeNo.text.trim().isEmpty ? null : row.holeNo.text.trim(),
+        'note': row.commentaire.text.trim().isEmpty ? null : row.commentaire.text.trim(),
+        'date_d': _parseHour(row.heureDebut.text.trim()),
+        'date_f': _parseHour(row.heureFin.text.trim()),
+        'rr': _parseHour(row.duree.text.trim()),
+        'distance': int.tryParse(row.distance.text.trim()),
+        'from_dim': int.tryParse(row.fromDe.text.trim()),
+        'to_dim': int.tryParse(row.toA.text.trim()),
+        'total_dim': int.tryParse(row.total.text.trim()),
+        'sequence': 10 * (_timeLogs.indexOf(row) + 1),
+      };
+    }).where((row) => (row['item'] as String).isNotEmpty).toList(growable: false);
+
+    await ref.read(appDatabaseProvider).replaceFeuilleLignesDraft(
+          feuilleLocalId: feuilleLocalId,
+          rows: rows,
+        );
   }
 
   bool _isDrillingLog(_ProductionTimeLogDraft log) {
@@ -359,6 +396,42 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
       }
     }
     return maxToDim;
+  }
+
+  List<String> _holeSuggestions(String query) {
+    final normalized = query.trim().toLowerCase();
+    final suggestions = <String>[];
+    final seen = <String>{};
+
+    void addCandidate(String value) {
+      final trimmed = value.trim();
+      if (trimmed.isEmpty) {
+        return;
+      }
+      final key = trimmed.toLowerCase();
+      if (seen.contains(key)) {
+        return;
+      }
+      if (normalized.isNotEmpty && !key.contains(normalized)) {
+        return;
+      }
+      seen.add(key);
+      suggestions.add(trimmed);
+    }
+
+    for (final hole in _recentHoleNos) {
+      addCandidate(hole);
+      if (suggestions.length >= 3) {
+        return suggestions;
+      }
+    }
+    for (final hole in _projectHoleProgressMap.keys) {
+      addCandidate(hole);
+      if (suggestions.length >= 3) {
+        break;
+      }
+    }
+    return suggestions;
   }
 
   Future<int?> _maxToDimForHole(String holeNo, {int? excludeIndex}) async {
@@ -1353,12 +1426,44 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                               children: [
                                 if (showHoleField)
                                   Expanded(
-                                    child: _buildTextField(
-                                      controller: log.holeNo,
-                                      label: 'Hole No.',
-                                      onChanged: (_) => setModalState(() {}),
-                                      inlineLabel: true,
-                                      enabled: isStepEnabled('hole'),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        _buildTextField(
+                                          controller: log.holeNo,
+                                          label: 'Hole No.',
+                                          onChanged: (_) => setModalState(() {}),
+                                          inlineLabel: true,
+                                          enabled: isStepEnabled('hole'),
+                                        ),
+                                        Builder(
+                                          builder: (context) {
+                                            final suggestions = _holeSuggestions(log.holeNo.text.trim());
+                                            if (suggestions.isEmpty) {
+                                              return const SizedBox.shrink();
+                                            }
+                                            return Padding(
+                                              padding: const EdgeInsets.only(top: 8),
+                                              child: Wrap(
+                                                spacing: 8,
+                                                runSpacing: 8,
+                                                children: suggestions.map((hole) {
+                                                  return ActionChip(
+                                                    label: Text(hole),
+                                                    onPressed: () {
+                                                      setModalState(() {
+                                                        log.holeNo.text = hole;
+                                                      });
+                                                    },
+                                                    backgroundColor: const Color(0xFFF3F6FB),
+                                                    side: const BorderSide(color: Color(0xFFD7DFEA)),
+                                                  );
+                                                }).toList(growable: false),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 if (showHoleField && showDistanceField) const SizedBox(width: 12),

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
 
 import 'production_screen.dart';
 
@@ -202,7 +203,7 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
     ref.read(reportDraftProvider.notifier).setQuart(inferredQuart);
   }
 
-  void _goNext() {
+  Future<void> _goNext() async {
     if (_selectedQuart == null ||
         _selectedForeuseOdooId == null ||
         _selectedLocationOdooId == null ||
@@ -238,6 +239,31 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
       projectDateDJ: project.dateDJ,
       projectDateDN: project.dateDN,
     );
+
+    final draft = ref.read(reportDraftProvider);
+    final db = ref.read(appDatabaseProvider);
+    final mobileUuid = draft.currentMobileUuid ?? const Uuid().v4();
+    final feuilleLocalId = await db.saveLocalFeuilleDraft(
+      mobileUuid: mobileUuid,
+      nomProjetOdooId: project.odooId,
+      quart: _selectedQuart!,
+      dateForage: _dateController.text.trim(),
+      foreuseOdooId: _selectedForeuseOdooId,
+      locationOdooId: _selectedLocationOdooId,
+      hourMeter: int.tryParse(_hourMeterController.text.trim()),
+      fuelMeter: _fuelMeterController.text.trim().isEmpty ? null : _fuelMeterController.text.trim(),
+      syncStatus: 'draft',
+      existingFeuilleLocalId: draft.currentFeuilleLocalId,
+    );
+    draftNotifier.setCurrentFeuille(
+      feuilleLocalId: feuilleLocalId,
+      mobileUuid: mobileUuid,
+      syncStatus: 'draft',
+    );
+
+    if (!mounted) {
+      return;
+    }
 
     Navigator.of(context).push(
       MaterialPageRoute(
