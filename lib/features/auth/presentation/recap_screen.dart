@@ -69,6 +69,8 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
     }
 
     final draft = ref.read(reportDraftProvider);
+    _currentFeuilleLocalId = draft.currentFeuilleLocalId;
+    _existingMobileUuid = draft.currentMobileUuid;
     _clientSignaturePoints
       ..clear()
       ..addAll(_fromDraftSignature(draft.clientSignature));
@@ -1337,7 +1339,8 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
     }
 
     return Column(
-      children: draft.timeLogs.map((row) {
+      children: List.generate(draft.timeLogs.length, (index) {
+        final row = draft.timeLogs[index];
         final taskLabel = row.codeTache.isEmpty ? '--' : row.codeTache;
         return Container(
           width: double.infinity,
@@ -1375,6 +1378,23 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
                       color: Color(0xFF536177),
                     ),
                   ),
+                  IconButton(
+                    onPressed: () => _openScreen(
+                      ProductionScreen(
+                        quart: draft.quart ?? 'Day/Jour',
+                        dateText: draft.dateText ?? '',
+                        projectOdooId: draft.projectOdooId ?? 0,
+                        projectDateDJ: draft.projectDateDJ,
+                        projectDateDN: draft.projectDateDN,
+                        foreuseOdooId: draft.foreuseOdooId ?? 0,
+                        locationOdooId: draft.locationOdooId ?? 0,
+                        currentFeuilleLocalId: draft.currentFeuilleLocalId ?? _currentFeuilleLocalId,
+                        initialEditIndex: index,
+                      ),
+                    ),
+                    icon: const Icon(Icons.edit_outlined, color: Color(0xFF2457C5)),
+                    tooltip: 'Modifier cette ligne',
+                  ),
                 ],
               ),
               const SizedBox(height: 12),
@@ -1386,7 +1406,7 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
             ],
           ),
         );
-      }).toList(),
+      }),
     );
   }
 
@@ -1960,7 +1980,8 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
                         projectDateDN: draft.projectDateDN,
                         foreuseOdooId: draft.foreuseOdooId ?? 0,
                         locationOdooId: draft.locationOdooId ?? 0,
-                        currentFeuilleLocalId: _currentFeuilleLocalId,
+                        currentFeuilleLocalId: draft.currentFeuilleLocalId ?? _currentFeuilleLocalId,
+                        initialEditIndex: draft.timeLogs.length == 1 ? 0 : null,
                       ),
                     ),
                     child: _buildTimeLogsSection(),

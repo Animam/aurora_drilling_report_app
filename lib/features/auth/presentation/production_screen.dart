@@ -109,6 +109,7 @@ class ProductionScreen extends ConsumerStatefulWidget {
     required this.foreuseOdooId,
     required this.locationOdooId,
     this.currentFeuilleLocalId,
+    this.initialEditIndex,
   });
 
   final String quart;
@@ -119,6 +120,7 @@ class ProductionScreen extends ConsumerStatefulWidget {
   final int foreuseOdooId;
   final int locationOdooId;
   final int? currentFeuilleLocalId;
+  final int? initialEditIndex;
 
   @override
   ConsumerState<ProductionScreen> createState() => _ProductionScreenState();
@@ -218,6 +220,12 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
     if (_timeLogs.isNotEmpty) {
       _rechainFrom(0);
       _persistDraft();
+    }
+
+    if (widget.initialEditIndex != null &&
+        widget.initialEditIndex! >= 0 &&
+        widget.initialEditIndex! < _timeLogs.length) {
+      Future.microtask(() => _editLog(widget.initialEditIndex!));
     }
   }
 
@@ -1206,14 +1214,29 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
     int? existingIndex,
   }) async {
     final isEditing = existingLog != null;
-    final log = existingLog ??
-        _ProductionTimeLogDraft(
-          category: category,
-          selectedTaskOdooId: task.odooId,
-          heureDebut: _nextStartText(),
-          heureFin: _nextStartText(),
-          codeTache: task.numItem ?? '',
-        );
+    final originalLog = existingLog;
+    final log = originalLog != null
+        ? _ProductionTimeLogDraft(
+            category: originalLog.category,
+            selectedTaskOdooId: originalLog.selectedTaskOdooId,
+            heureDebut: originalLog.heureDebut.text.trim(),
+            heureFin: originalLog.heureFin.text.trim(),
+            codeTache: originalLog.codeTache.text.trim(),
+            holeNo: originalLog.holeNo.text.trim(),
+            fromDe: originalLog.fromDe.text.trim(),
+            toA: originalLog.toA.text.trim(),
+            total: originalLog.total.text.trim(),
+            commentaire: originalLog.commentaire.text.trim(),
+            distance: originalLog.distance.text.trim(),
+            duree: originalLog.duree.text.trim(),
+          )
+        : _ProductionTimeLogDraft(
+            category: category,
+            selectedTaskOdooId: task.odooId,
+            heureDebut: _nextStartText(),
+            heureFin: _nextStartText(),
+            codeTache: task.numItem ?? '',
+          );
 
     log.selectedTaskOdooId = task.odooId;
     log.codeTache.text = task.numItem ?? '';
@@ -1247,6 +1270,41 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
         ? isDelayDistanceCode
         : category != 'NOH' && !hideOperationalFields;
     final useDialogEditor = const {'NOH', 'DOWN', 'DELAY', 'STANDBY'}.contains(category);
+    int? lastKnownToDim;
+    var holeProgressInitialized = false;
+
+    Future<void> refreshKnownHoleProgress(
+      StateSetter setModalState, {
+      bool autofillIfEmpty = false,
+      bool forceAutofill = false,
+    }) async {
+      if (!(category == 'NOH' && effectiveNohType == 'DRILLING')) {
+        return;
+      }
+
+      final normalizedHole = log.holeNo.text.trim();
+      if (normalizedHole.isEmpty) {
+        setModalState(() {
+          lastKnownToDim = null;
+        });
+        return;
+      }
+
+      final maxToDim = await _maxToDimForHole(normalizedHole, excludeIndex: existingIndex);
+      if (!mounted) {
+        return;
+      }
+
+      setModalState(() {
+        lastKnownToDim = maxToDim;
+        final shouldAutofill =
+            maxToDim != null && (forceAutofill || (autofillIfEmpty && log.fromDe.text.trim().isEmpty));
+        if (shouldAutofill) {
+          log.fromDe.text = maxToDim.toString();
+          _recomputeTotals(log);
+        }
+      });
+    }
 
     bool isStepEnabled(String field) {
       final hasEnd = log.heureFin.text.trim().isNotEmpty && log.heureFin.text.trim() != log.heureDebut.text.trim();
@@ -1432,33 +1490,69 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                                         _buildTextField(
                                           controller: log.holeNo,
                                           label: 'Hole No.',
-                                          onChanged: (_) => setModalState(() {}),
+                                          onChanged: (_) {
+                                            setModalState(() {});
+                                            refreshKnownHoleProgress(setModalState, autofillIfEmpty: true);
+                                          },
                                           inlineLabel: true,
                                           enabled: isStepEnabled('hole'),
                                         ),
                                         Builder(
                                           builder: (context) {
                                             final suggestions = _holeSuggestions(log.holeNo.text.trim());
-                                            if (suggestions.isEmpty) {
+                                            if (!holeProgressInitialized &&
+                                                category == 'NOH' &&
+                                                effectiveNohType == 'DRILLING') {
+                                              holeProgressInitialized = true;
+                                              Future.microtask(
+                                                () => refreshKnownHoleProgress(
+                                                  setModalState,
+                                                  autofillIfEmpty: true,
+                                                ),
+                                              );
+                                            }
+                                            if (suggestions.isEmpty && lastKnownToDim == null) {
                                               return const SizedBox.shrink();
                                             }
                                             return Padding(
                                               padding: const EdgeInsets.only(top: 8),
-                                              child: Wrap(
-                                                spacing: 8,
-                                                runSpacing: 8,
-                                                children: suggestions.map((hole) {
-                                                  return ActionChip(
-                                                    label: Text(hole),
-                                                    onPressed: () {
-                                                      setModalState(() {
-                                                        log.holeNo.text = hole;
-                                                      });
-                                                    },
-                                                    backgroundColor: const Color(0xFFF3F6FB),
-                                                    side: const BorderSide(color: Color(0xFFD7DFEA)),
-                                                  );
-                                                }).toList(growable: false),
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  if (suggestions.isNotEmpty)
+                                                    Wrap(
+                                                      spacing: 8,
+                                                      runSpacing: 8,
+                                                      children: suggestions.map((hole) {
+                                                        return ActionChip(
+                                                          label: Text(hole),
+                                                          onPressed: () {
+                                                            setModalState(() {
+                                                              log.holeNo.text = hole;
+                                                            });
+                                                            refreshKnownHoleProgress(
+                                                              setModalState,
+                                                              forceAutofill: true,
+                                                            );
+                                                          },
+                                                          backgroundColor: const Color(0xFFF3F6FB),
+                                                          side: const BorderSide(color: Color(0xFFD7DFEA)),
+                                                        );
+                                                      }).toList(growable: false),
+                                                    ),
+                                                  if (lastKnownToDim != null)
+                                                    Padding(
+                                                      padding: const EdgeInsets.only(top: 8),
+                                                      child: Text(
+                                                        'Dernier Metttrage : $lastKnownToDim',
+                                                        style: const TextStyle(
+                                                          color: Color(0xFF536177),
+                                                          fontSize: 12,
+                                                          fontWeight: FontWeight.w700,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                ],
                                               ),
                                             );
                                           },
@@ -1780,15 +1874,15 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
           ));
 
     if (shouldSave != true || !mounted) {
-      if (!isEditing) {
-        log.dispose();
-      }
+      log.dispose();
       return;
     }
 
     setState(() {
       if (isEditing && existingIndex != null) {
+        final previousLog = _timeLogs[existingIndex];
         _timeLogs[existingIndex] = log;
+        previousLog.dispose();
         _rechainFrom(existingIndex);
       } else {
         _timeLogs.add(log);

@@ -563,6 +563,38 @@ class _DrillingFuelFormState extends ConsumerState<DrillingFuelForm> {
     }
   }
 
+  void _addQuantityValue(TextEditingController controller, int value) {
+    final currentVal = int.tryParse(controller.text) ?? 0;
+    setState(() {
+      controller.text = (currentVal + value).toString();
+    });
+    _persistDraft();
+  }
+
+  Widget _buildQuantityPresetButtons(_FuelLogDraft item) {
+    const values = [5, 10, 100, 1000];
+    return Row(
+      children: values.map((value) {
+        return Expanded(
+          child: Padding(
+            padding: EdgeInsets.only(right: value == values.last ? 0 : 8),
+            child: OutlinedButton(
+              onPressed: () => _addQuantityValue(item.qtyFuel, value),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                side: const BorderSide(color: Color(0xFFCBD5E1)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                foregroundColor: const Color(0xFF1E3A5F),
+                textStyle: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+              child: Text('$value'),
+            ),
+          ),
+        );
+      }).toList(growable: false),
+    );
+  }
+
   Widget _buildReferenceStatus() {
     if (_loadingReferences) {
       return const Padding(
@@ -722,6 +754,8 @@ class _DrillingFuelFormState extends ConsumerState<DrillingFuelForm> {
               'Qty Fuel',
               style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
             ),
+            const SizedBox(height: 8),
+            _buildQuantityPresetButtons(item),
             const SizedBox(height: 8),
             _buildQuantityField(item),
             const SizedBox(height: 16),
