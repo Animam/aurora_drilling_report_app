@@ -243,6 +243,31 @@ class AppDatabase extends _$AppDatabase {
     });
   }
 
+  Future<void> clearAllLocalData() async {
+    await transaction(() async {
+      await delete(feuilleLignes).go();
+      await delete(feuilleFuels).go();
+      await delete(feuilleEmployes).go();
+      await delete(feuilleMateriels).go();
+      await delete(feuilles).go();
+      await delete(projects).go();
+      await delete(employees).go();
+      await delete(equipments).go();
+      await delete(tasks).go();
+      await delete(locations).go();
+      await delete(materialReferences).go();
+    });
+  }
+
+  Future<bool> hasUnsyncedLocalFeuilles() async {
+    final row = await (selectOnly(feuilles)
+          ..addColumns([feuilles.localId.count()])
+          ..where(feuilles.syncStatus.equals('draft') | feuilles.syncStatus.equals('pending')))
+        .getSingle();
+    final count = row.read(feuilles.localId.count()) ?? 0;
+    return count > 0;
+  }
+
   Future<void> saveProjects(List<Map<String, dynamic>> items) async {
     await batch((batch) {
       batch.insertAll(

@@ -5,11 +5,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../shared/providers/api_providers.dart';
 import '../../../shared/providers/app_providers.dart';
 
-Future<void> ensureReferenceData(WidgetRef ref) async {
+Future<Map<String, dynamic>> ensureReferenceData(
+  WidgetRef ref, {
+  Map<String, dynamic>? bootstrapResult,
+}) async {
   final db = ref.read(appDatabaseProvider);
   final api = ref.read(bootstrapApiProvider);
 
-  final result = await api.fetchBootstrap();
+  final result = bootstrapResult ?? await api.fetchBootstrap();
 
   final projects = (result['projects'] as List<dynamic>? ?? [])
       .map((e) => Map<String, dynamic>.from(e as Map))
@@ -29,6 +32,9 @@ Future<void> ensureReferenceData(WidgetRef ref) async {
   final materials = (result['materials'] as List<dynamic>? ?? [])
       .map((e) => Map<String, dynamic>.from(e as Map))
       .toList();
+  final companyData = Map<String, dynamic>.from(result['company'] as Map? ?? const {});
+  final employeeContext =
+      Map<String, dynamic>.from(result['employee_context'] as Map? ?? const {});
   final rawProjectDrillingTaskMap =
       Map<String, dynamic>.from(result['project_drilling_task_map'] as Map? ?? const {});
   final projectDrillingTaskMap = rawProjectDrillingTaskMap.map((key, value) {
@@ -56,6 +62,30 @@ Future<void> ensureReferenceData(WidgetRef ref) async {
   await db.saveMaterialReferences(materials);
   await ref.read(projectDrillingTaskStoreProvider).replaceMap(projectDrillingTaskMap);
   await ref.read(projectHoleProgressStoreProvider).replaceMap(projectHoleProgressMap);
+
+  final companyId = (companyData['id'] as num?)?.toInt();
+  final companyName = companyData['name']?.toString() ?? '';
+  final employeeId = (employeeContext['employee_id'] as num?)?.toInt();
+  final employeeName = employeeContext['employee_name']?.toString() ?? '';
+  final assignedProjectIds = (employeeContext['assigned_project_ids'] as List<dynamic>? ?? const [])
+      .map((item) => (item as num).toInt())
+      .toList(growable: false);
+
+  if (companyId != null && companyName.isNotEmpty && employeeId != null && employeeName.isNotEmpty) {
+    await ref.read(mobileScopeCacheProvider).saveScope(
+          companyId: companyId,
+          companyName: companyName,
+          employeeId: employeeId,
+          employeeName: employeeName,
+          assignedProjectIds: assignedProjectIds,
+        );
+    await ref.read(tabletCompanyLockProvider).bindCompany(
+          companyId: companyId,
+          companyName: companyName,
+        );
+  }
+
+  return result;
 }
 
 

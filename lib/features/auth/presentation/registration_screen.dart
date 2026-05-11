@@ -387,6 +387,62 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
     );
   }
 
+
+  Widget _buildForeuseButtons() {
+    if (_foreuses.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF7FAFC),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: const Text(
+          'Aucune foreuse disponible pour votre perimetre.',
+          style: TextStyle(
+            color: Color(0xFF6B7280),
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      );
+    }
+
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      children: _foreuses.map((item) {
+        final selected = _selectedForeuseOdooId == item.odooId;
+        return InkWell(
+          onTap: () {
+            setState(() => _selectedForeuseOdooId = item.odooId);
+            ref.read(reportDraftProvider.notifier).setForeuseOdooId(item.odooId);
+            _applyAutoQuartFromSelection(force: true);
+          },
+          borderRadius: BorderRadius.circular(14),
+          child: Ink(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              color: selected ? const Color(0xFF1E3A5F) : const Color(0xFFF7FAFC),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: selected ? const Color(0xFF1E3A5F) : const Color(0xFFE2E8F0),
+              ),
+            ),
+            child: Text(
+              item.name,
+              style: TextStyle(
+                color: selected ? Colors.white : const Color(0xFF374151),
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        );
+      }).toList(growable: false),
+    );
+  }
+
   Widget _buildOptionalTextField({
     required TextEditingController controller,
     required String hint,
@@ -540,23 +596,7 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                             const SizedBox(height: 20),
                           ],
                           _buildLabel('Foreuse *'),
-                          _buildDropdownField<int>(
-                            hint: 'Choisissez...',
-                            value: _selectedForeuseOdooId,
-                            items: _foreuses
-                                .map(
-                                  (item) => DropdownMenuItem<int>(
-                                    value: item.odooId,
-                                    child: Text(item.name),
-                                  ),
-                                )
-                                .toList(),
-                            onChanged: (value) {
-                              setState(() => _selectedForeuseOdooId = value);
-                              ref.read(reportDraftProvider.notifier).setForeuseOdooId(value);
-                              _applyAutoQuartFromSelection(force: true);
-                            },
-                          ),
+                          _buildForeuseButtons(),
                           const SizedBox(height: 25),
                           _buildLabel('Quart/Shift *'),
                           _buildShiftButtons(enabled: quartEnabled),

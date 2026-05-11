@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../shared/providers/api_providers.dart';
 import '../../../shared/providers/app_providers.dart';
+import '../../../shared/providers/report_draft_provider.dart';
 import '../../bootstrap/presentation/bootstrap_screen.dart';
 import 'post_login_menu_screen.dart';
 
@@ -71,40 +72,67 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     try {
       await ref.read(cookieJarProvider).deleteAll();
       final authApi = ref.read(authApiProvider);
-      final loginResult = await authApi.login(
+      await authApi.login(
         db: _dbController.text.trim(),
         login: login,
         password: password,
       );
 
-      final companyId = loginResult['company_id'] as int?;
-      final companyName = loginResult['company_name']?.toString() ?? '';
+      final bootstrapResult = await ref.read(bootstrapApiProvider).fetchBootstrap();
+      final companyData = Map<String, dynamic>.from(bootstrapResult['company'] as Map? ?? const {});
+      final employeeContext =
+          Map<String, dynamic>.from(bootstrapResult['employee_context'] as Map? ?? const {});
+      final companyId = (companyData['id'] as num?)?.toInt();
+      final companyName = companyData['name']?.toString() ?? '';
+      final employeeId = (employeeContext['employee_id'] as num?)?.toInt();
+      final employeeName = employeeContext['employee_name']?.toString() ?? '';
+      final mobileScopeCache = ref.read(mobileScopeCacheProvider);
       final companyLock = ref.read(tabletCompanyLockProvider);
+      final db = ref.read(appDatabaseProvider);
+      final cachedScope = await mobileScopeCache.readScope();
       final binding = await companyLock.readBinding();
+      final cachedCompanyId =
+          (cachedScope?['company_id'] as int?) ?? (binding?['company_id'] as int?);
+      final hasUnsyncedData = await db.hasUnsyncedLocalFeuilles();
 
-      if (binding != null) {
-        final boundCompanyId = binding['company_id'] as int?;
-        final boundCompanyName = binding['company_name']?.toString() ?? '';
+      if (companyId == null || companyName.isEmpty) {
+        await authApi.logout();
+        await ref.read(cookieJarProvider).deleteAll();
+        throw Exception('Societe mobile introuvable dans le bootstrap');
+      }
 
-        if (companyId == null || boundCompanyId != companyId) {
-          await authApi.logout();
-          await ref.read(cookieJarProvider).deleteAll();
-          throw Exception('Cette tablette est dedier au $boundCompanyName');
-        }
-      } else {
-        if (companyId == null || companyName.isEmpty) {
-          await authApi.logout();
-          await ref.read(cookieJarProvider).deleteAll();
-          throw Exception('Societe utilisateur introuvable');
-        }
+      if (employeeId == null || employeeName.isEmpty) {
+        await authApi.logout();
+        await ref.read(cookieJarProvider).deleteAll();
+        throw Exception('Contexte employe mobile introuvable dans le bootstrap');
+      }
 
-        await companyLock.bindCompany(
-          companyId: companyId,
-          companyName: companyName,
+      if (hasUnsyncedData && cachedCompanyId == null) {
+        await authApi.logout();
+        await ref.read(cookieJarProvider).deleteAll();
+        throw Exception(
+          'Des donnees non synchronisees existent sur cette tablette. Impossible de verifier le changement de societe tant que ces donnees ne sont pas synchronisees ou supprimees.',
         );
       }
 
-      await ensureReferenceData(ref);
+      if (cachedCompanyId != null && cachedCompanyId != companyId) {
+        if (hasUnsyncedData) {
+          await authApi.logout();
+          await ref.read(cookieJarProvider).deleteAll();
+          throw Exception(
+            'Des donnees non synchronisees existent sur cette tablette. Synchronisez ou supprimez-les avant de changer de societe.',
+          );
+        }
+
+        await db.clearAllLocalData();
+        await ref.read(projectDrillingTaskStoreProvider).clear();
+        await ref.read(projectHoleProgressStoreProvider).clear();
+        await mobileScopeCache.clear();
+        await companyLock.clearBinding();
+        ref.read(reportDraftProvider.notifier).reset();
+      }
+
+      await ensureReferenceData(ref, bootstrapResult: bootstrapResult);
 
       if (!mounted) return;
 
