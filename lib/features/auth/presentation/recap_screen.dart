@@ -1003,11 +1003,30 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
     return hasDecimals ? value.toStringAsFixed(2) : value.toStringAsFixed(0);
   }
 
-  bool _isNohDrillingRow(ReportTimeLogDraft row) {
-    if (row.selectedTaskOdooId == null) {
-      return false;
+  Task? _findTaskForTimeRow(ReportTimeLogDraft row) {
+    if (row.selectedTaskOdooId != null) {
+      final task = _findByOdooId<Task>(_tasks, row.selectedTaskOdooId, (item) => item.odooId);
+      if (task != null) {
+        return task;
+      }
     }
-    final task = _findByOdooId<Task>(_tasks, row.selectedTaskOdooId, (item) => item.odooId);
+
+    final itemCode = row.codeTache.trim();
+    if (itemCode.isEmpty) {
+      return null;
+    }
+
+    for (final task in _tasks) {
+      if ((task.numItem ?? '').trim() == itemCode) {
+        return task;
+      }
+    }
+
+    return null;
+  }
+
+  bool _isNohDrillingRow(ReportTimeLogDraft row) {
+    final task = _findTaskForTimeRow(row);
     if (task == null) {
       return false;
     }
@@ -1341,7 +1360,10 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
     return Column(
       children: List.generate(draft.timeLogs.length, (index) {
         final row = draft.timeLogs[index];
-        final taskLabel = row.codeTache.isEmpty ? '--' : row.codeTache;
+        final task = _findTaskForTimeRow(row);
+        final taskLabel = task != null && task.libelle.trim().isNotEmpty
+            ? task.libelle.trim()
+            : '--';
         return Container(
           width: double.infinity,
           margin: const EdgeInsets.only(bottom: 12),
@@ -1398,7 +1420,7 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
                 ],
               ),
               const SizedBox(height: 12),
-              _buildInfoRow('Item / Code', taskLabel),
+              _buildInfoRow('Tache', taskLabel),
               _buildInfoRow('Hole No.', row.holeNo.isEmpty ? '--' : row.holeNo),
               _buildInfoRow('De / A', '${row.fromDe.isEmpty ? '0' : row.fromDe} -> ${row.toA.isEmpty ? '0' : row.toA}'),
               _buildInfoRow('Total metres', row.total.isEmpty ? '0' : row.total),

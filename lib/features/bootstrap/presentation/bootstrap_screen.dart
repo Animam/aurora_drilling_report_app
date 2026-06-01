@@ -45,12 +45,26 @@ Future<Map<String, dynamic>> ensureReferenceData(
   });
   final rawProjectHoleProgressMap =
       Map<String, dynamic>.from(result['project_hole_progress_map'] as Map? ?? const {});
+  final rawProjectDrillingTypeMap =
+      Map<String, dynamic>.from(result['project_drilling_type_map'] as Map? ?? const {});
+  final rawMaterialTagMap = <String, List<String>>{
+    for (final item in materials)
+      ((item['odoo_id'] as num).toInt()).toString():
+          (item['tag_names'] as List<dynamic>? ?? const []).map((tag) => tag.toString()).toList(growable: false),
+  };
   final projectHoleProgressMap = rawProjectHoleProgressMap.map((key, value) {
     final holes = Map<String, dynamic>.from(value as Map? ?? const {});
     return MapEntry(
       key,
       holes.map((holeNo, maxValue) => MapEntry(holeNo, (maxValue as num).toInt())),
     );
+  });
+
+  final projectDrillingTypeMap = rawProjectDrillingTypeMap.map((key, value) {
+    final types = (value as List<dynamic>? ?? const [])
+        .map((item) => item.toString())
+        .toList(growable: false);
+    return MapEntry(key, types);
   });
 
   await db.clearReferenceData();
@@ -62,6 +76,8 @@ Future<Map<String, dynamic>> ensureReferenceData(
   await db.saveMaterialReferences(materials);
   await ref.read(projectDrillingTaskStoreProvider).replaceMap(projectDrillingTaskMap);
   await ref.read(projectHoleProgressStoreProvider).replaceMap(projectHoleProgressMap);
+  await ref.read(projectDrillingTypeStoreProvider).replaceMap(projectDrillingTypeMap);
+  await ref.read(materialTagStoreProvider).replaceMap(rawMaterialTagMap);
 
   final companyId = (companyData['id'] as num?)?.toInt();
   final companyName = companyData['name']?.toString() ?? '';

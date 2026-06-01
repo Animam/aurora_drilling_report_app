@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/local/db/app_database.dart';
 import '../services/project_drilling_task_store.dart';
 import '../services/project_hole_progress_store.dart';
+import '../services/project_drilling_type_store.dart';
+import '../services/material_tag_store.dart';
 import '../services/mobile_scope_cache_service.dart';
 import '../services/tablet_company_lock_service.dart';
 
@@ -26,4 +28,12 @@ final projectHoleProgressStoreProvider = Provider<ProjectHoleProgressStore>((ref
 
 final mobileScopeCacheProvider = Provider<MobileScopeCacheService>((ref) {
   return MobileScopeCacheService();
+});
+
+final projectDrillingTypeStoreProvider = Provider<ProjectDrillingTypeStore>((ref) {
+  return ProjectDrillingTypeStore();
+});
+
+final materialTagStoreProvider = Provider<MaterialTagStore>((ref) {
+  return MaterialTagStore();
 });

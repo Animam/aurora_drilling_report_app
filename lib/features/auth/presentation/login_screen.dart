@@ -127,6 +127,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         await db.clearAllLocalData();
         await ref.read(projectDrillingTaskStoreProvider).clear();
         await ref.read(projectHoleProgressStoreProvider).clear();
+        await ref.read(projectDrillingTypeStoreProvider).clear();
+        await ref.read(materialTagStoreProvider).clear();
         await mobileScopeCache.clear();
         await companyLock.clearBinding();
         ref.read(reportDraftProvider.notifier).reset();

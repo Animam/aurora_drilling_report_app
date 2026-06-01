@@ -141,8 +141,10 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
   List<Task> _tasks = [];
   List<MaterialReference> _materialReferences = const [];
   List<int> _projectDrillingTaskIds = const [];
+  List<String> _projectDrillingTypes = const [];
   List<String> _recentHoleNos = const [];
   Map<String, int> _projectHoleProgressMap = const {};
+  Map<int, List<String>> _materialTagMap = const {};
   Project? _project;
   Equipment? _foreuse;
   Location? _location;
@@ -178,6 +180,11 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
     final projectHoleProgressMap = await ref
         .read(projectHoleProgressStoreProvider)
         .getHoleProgressForProject(widget.projectOdooId);
+    final projectDrillingTypes = await ref
+        .read(projectDrillingTypeStoreProvider)
+        .getDrillingTypesForProject(widget.projectOdooId);
+    final materialTagMapRaw = await ref.read(materialTagStoreProvider).readMap();
+    final materialTagMap = materialTagMapRaw.map((key, value) => MapEntry(int.tryParse(key) ?? 0, value));
     final recentHoleNos = await db.getRecentHoleNosByProject(projectOdooId: widget.projectOdooId);
 
     final sameContext =
@@ -206,8 +213,10 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
       _tasks = tasks;
       _materialReferences = materialReferences;
       _projectDrillingTaskIds = projectDrillingTaskIds;
+      _projectDrillingTypes = projectDrillingTypes;
       _recentHoleNos = recentHoleNos;
       _projectHoleProgressMap = projectHoleProgressMap;
+      _materialTagMap = materialTagMap;
       _project = _findByOdooId<Project>(projects, widget.projectOdooId, (item) => item.odooId);
       _foreuse = _findByOdooId<Equipment>(equipments, widget.foreuseOdooId, (item) => item.odooId);
       _location = _findByOdooId<Location>(locations, widget.locationOdooId, (item) => item.odooId);
@@ -486,6 +495,49 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
     return materielLogs.any((item) => item.materialOdooId == materialOdooId);
   }
 
+  List<String> _forageTagsForCurrentProject() {
+    final tags = <String>{};
+    for (final type in _projectDrillingTypes) {
+      final normalized = type.trim().toUpperCase();
+      if (normalized.isEmpty) {
+        continue;
+      }
+      if (normalized.startsWith('FORAGE ')) {
+        tags.add(normalized);
+        continue;
+      }
+      if (normalized.startsWith('DRILLING ')) {
+        tags.add(normalized.replaceFirst('DRILLING ', 'FORAGE '));
+        continue;
+      }
+      tags.add(normalized);
+    }
+    return tags.toList(growable: false);
+  }
+
+  bool _hasRequiredTaggedMaterial(String functionTag) {
+    final normalizedFunctionTag = functionTag.trim().toUpperCase();
+    final allowedForageTags = _forageTagsForCurrentProject();
+    final materielLogs = ref.read(reportDraftProvider).materielLogs;
+
+    for (final item in materielLogs) {
+      final materialOdooId = item.materialOdooId;
+      if (materialOdooId == null) {
+        continue;
+      }
+      final tags = (_materialTagMap[materialOdooId] ?? const [])
+          .map((tag) => tag.trim().toUpperCase())
+          .toList(growable: false);
+      if (!tags.contains(normalizedFunctionTag)) {
+        continue;
+      }
+      if (allowedForageTags.isEmpty || tags.any(allowedForageTags.contains)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   Future<String?> _pickQuickMaterialQuantity() async {
     final controller = TextEditingController(text: '1');
 
@@ -584,13 +636,42 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
     return quantity;
   }
 
-  Future<bool> _openQuickMaterialPicker() async {
+  Future<bool> _openQuickMaterialPicker({
+    String? requiredFunctionTag,
+    String? dialogTitle,
+    String? emptyMessage,
+  }) async {
+    final allowedForageTags = _forageTagsForCurrentProject();
+    final normalizedFunctionTag = requiredFunctionTag?.trim().toUpperCase();
+
+    bool matchesMaterialTags(MaterialReference material) {
+      final tags = (_materialTagMap[material.odooId] ?? const [])
+          .map((tag) => tag.trim().toUpperCase())
+          .toList(growable: false);
+
+      if (normalizedFunctionTag != null &&
+          normalizedFunctionTag.isNotEmpty &&
+          !tags.contains(normalizedFunctionTag)) {
+        return false;
+      }
+
+      if (allowedForageTags.isEmpty) {
+        return normalizedFunctionTag == null ||
+            normalizedFunctionTag.isEmpty ||
+            tags.contains(normalizedFunctionTag);
+      }
+
+      return tags.any(allowedForageTags.contains);
+    }
+
     final selectedMaterial = await showDialog<MaterialReference>(
       context: context,
       builder: (context) {
         final controller = TextEditingController();
         var filtered = _materialReferences
-            .where((material) => !_isMaterialAlreadyAdded(material.odooId))
+            .where((material) =>
+                !_isMaterialAlreadyAdded(material.odooId) &&
+                matchesMaterialTags(material))
             .toList(growable: false);
 
         return StatefulBuilder(
@@ -599,13 +680,16 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
               final normalized = query.trim().toLowerCase();
               setDialogState(() {
                 filtered = _materialReferences.where((material) {
-                  if (_isMaterialAlreadyAdded(material.odooId)) {
+                  if (_isMaterialAlreadyAdded(material.odooId) ||
+                      !matchesMaterialTags(material)) {
                     return false;
                   }
                   if (normalized.isEmpty) {
                     return true;
                   }
-                  final haystack = '${material.reference ?? ''} ${material.description}'.toLowerCase();
+                  final haystack =
+                      '${material.reference ?? ''} ${material.description}'
+                          .toLowerCase();
                   return haystack.contains(normalized);
                 }).toList(growable: false);
               });
@@ -613,9 +697,9 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
 
             return AlertDialog(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-              title: const Text(
-                'Ajouter un materiel',
-                style: TextStyle(fontWeight: FontWeight.w800),
+              title: Text(
+                dialogTitle ?? 'Ajouter un materiel',
+                style: const TextStyle(fontWeight: FontWeight.w800),
               ),
               content: SizedBox(
                 width: 560,
@@ -639,9 +723,9 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                     ),
                     const SizedBox(height: 16),
                     if (filtered.isEmpty)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 16),
-                        child: Text('Aucun materiel disponible.'),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        child: Text(emptyMessage ?? 'Aucun materiel disponible.'),
                       )
                     else
                       ConstrainedBox(
@@ -649,7 +733,8 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                         child: ListView.separated(
                           shrinkWrap: true,
                           itemCount: filtered.length,
-                          separatorBuilder: (context, index) => const SizedBox(height: 8),
+                          separatorBuilder: (context, index) =>
+                              const SizedBox(height: 8),
                           itemBuilder: (context, index) {
                             final material = filtered[index];
                             return Material(
@@ -657,11 +742,14 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                               borderRadius: BorderRadius.circular(16),
                               child: ListTile(
                                 title: Text(
-                                  material.reference?.isNotEmpty == true ? material.reference! : '--',
+                                  material.reference?.isNotEmpty == true
+                                      ? material.reference!
+                                      : '--',
                                   style: const TextStyle(fontWeight: FontWeight.w800),
                                 ),
                                 subtitle: Text(material.description),
-                                trailing: const Icon(Icons.add_circle_outline_rounded),
+                                trailing:
+                                    const Icon(Icons.add_circle_outline_rounded),
                                 onTap: () => Navigator.pop(context, material),
                               ),
                             );
@@ -683,27 +771,28 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
       },
     );
 
-    if (selectedMaterial == null) {
+    if (!mounted || selectedMaterial == null) {
       return false;
     }
 
-    final quantity = await _pickQuickMaterialQuantity();
-    if (quantity == null) {
+    final quantityText = await _pickQuickMaterialQuantity();
+    if (!mounted || quantityText == null) {
+      return false;
+    }
+
+    final quantity = double.tryParse(quantityText) ?? 0;
+    if (quantity <= 0) {
       return false;
     }
 
     final draft = ref.read(reportDraftProvider);
-    if (_isMaterialAlreadyAdded(selectedMaterial.odooId)) {
-      return false;
-    }
-
     final updatedMaterielLogs = [
       ...draft.materielLogs,
       ReportMaterielDraft(
         materialOdooId: selectedMaterial.odooId,
         description: selectedMaterial.description,
         serie: selectedMaterial.reference ?? '',
-        quantite: quantity,
+        quantite: quantity == quantity.roundToDouble() ? quantity.toInt().toString() : quantity.toString(),
       ),
     ];
 
@@ -1270,6 +1359,7 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
         ? isDelayDistanceCode
         : category != 'NOH' && !hideOperationalFields;
     final useDialogEditor = const {'NOH', 'DOWN', 'DELAY', 'STANDBY'}.contains(category);
+    final isLockedDrillingFromField = category == 'NOH' && effectiveNohType == 'DRILLING' && showFromToFields;
     int? lastKnownToDim;
     var holeProgressInitialized = false;
 
@@ -1297,10 +1387,13 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
 
       setModalState(() {
         lastKnownToDim = maxToDim;
-        final shouldAutofill =
-            maxToDim != null && (forceAutofill || (autofillIfEmpty && log.fromDe.text.trim().isEmpty));
+        final shouldAutofill = forceAutofill || (autofillIfEmpty && log.fromDe.text.trim().isEmpty);
         if (shouldAutofill) {
-          log.fromDe.text = maxToDim.toString();
+          if (maxToDim != null) {
+            log.fromDe.text = maxToDim.toString();
+          } else {
+            log.fromDe.text = '0';
+          }
           _recomputeTotals(log);
         }
       });
@@ -1362,21 +1455,16 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                     setModalState(() {});
                   }
 
-                  Future<void> showPendingFeature(String label) async {
-                    await showDialog<void>(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                        title: Text(label),
-                        content: const Text('Fonction en attente de parametrage.'),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: const Text('OK'),
-                          ),
-                        ],
-                      ),
+                  Future<void> openTaggedMaterial(String functionTag, String label) async {
+                    final added = await _openQuickMaterialPicker(
+                      requiredFunctionTag: functionTag,
+                      dialogTitle: 'Ajouter un $label',
+                      emptyMessage: 'Aucun $label disponible pour ce projet.',
                     );
+                    if (!mounted || !added) {
+                      return;
+                    }
+                    setModalState(() {});
                   }
 
                   return AlertDialog(
@@ -1464,7 +1552,7 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                                 if (isDelayChangeBit)
                                   _buildQuickTimeButton(
                                     'Taillant',
-                                    () => showPendingFeature('Taillant'),
+                                    () => openTaggedMaterial('Taillant', 'taillant'),
                                     backgroundColor: const Color(0xFF2457C5),
                                     foregroundColor: Colors.white,
                                     borderColor: const Color(0xFF2457C5),
@@ -1472,7 +1560,7 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                                 if (isDelayChangeHammer)
                                   _buildQuickTimeButton(
                                     'Marteau',
-                                    () => showPendingFeature('Marteau'),
+                                    () => openTaggedMaterial('Marteau', 'marteau'),
                                     backgroundColor: const Color(0xFF2457C5),
                                     foregroundColor: Colors.white,
                                     borderColor: const Color(0xFF2457C5),
@@ -1492,7 +1580,7 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                                           label: 'Hole No.',
                                           onChanged: (_) {
                                             setModalState(() {});
-                                            refreshKnownHoleProgress(setModalState, autofillIfEmpty: true);
+                                            refreshKnownHoleProgress(setModalState, forceAutofill: true);
                                           },
                                           inlineLabel: true,
                                           enabled: isStepEnabled('hole'),
@@ -1586,6 +1674,7 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                                       onChanged: (_) => setModalState(() => _recomputeTotals(log)),
                                       inlineLabel: true,
                                       enabled: isStepEnabled('from'),
+                                      readOnly: isLockedDrillingFromField,
                                     ),
                                   ),
                                   const SizedBox(width: 12),
@@ -1674,6 +1763,14 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                                         _showMessage(
                                           'Heure fin hors plage du shift. Reste entre ${_shiftStartText()} et ${_shiftEndText()}.',
                                         );
+                                        return;
+                                      }
+                                      if (isDelayChangeBit && !_hasRequiredTaggedMaterial('Taillant')) {
+                                        _showMessage('Ajoute un taillant avant de valider cette activite.');
+                                        return;
+                                      }
+                                      if (isDelayChangeHammer && !_hasRequiredTaggedMaterial('Marteau')) {
+                                        _showMessage('Ajoute un marteau avant de valider cette activite.');
                                         return;
                                       }
                                       Navigator.pop(context, true);
@@ -1814,6 +1911,7 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                       inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
                                       onChanged: (_) => setModalState(() => _recomputeTotals(log)),
+                                      readOnly: isLockedDrillingFromField,
                                     ),
                                   ),
                                   const SizedBox(width: 12),
@@ -2123,6 +2221,7 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
     bool inlineLabel = false,
     List<TextInputFormatter>? inputFormatters,
     bool enabled = true,
+    bool readOnly = false,
   }) {
     if (inlineLabel) {
       return TextField(
@@ -2132,10 +2231,13 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
         maxLines: maxLines,
         inputFormatters: inputFormatters,
         enabled: enabled,
+        readOnly: readOnly,
         decoration: InputDecoration(
           hintText: label,
           filled: true,
-          fillColor: enabled ? Colors.white : const Color(0xFFE5E7EB),
+          fillColor: enabled
+              ? (readOnly ? const Color(0xFFF3F6FB) : Colors.white)
+              : const Color(0xFFE5E7EB),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
             borderSide: BorderSide.none,
@@ -2160,9 +2262,12 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
           maxLines: maxLines,
           inputFormatters: inputFormatters,
           enabled: enabled,
+          readOnly: readOnly,
           decoration: InputDecoration(
             filled: true,
-            fillColor: enabled ? Colors.white : const Color(0xFFE5E7EB),
+            fillColor: enabled
+                ? (readOnly ? const Color(0xFFF3F6FB) : Colors.white)
+                : const Color(0xFFE5E7EB),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
               borderSide: BorderSide.none,
