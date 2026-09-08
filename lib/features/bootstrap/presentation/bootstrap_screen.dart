@@ -224,7 +224,7 @@ class _BootstrapScreenState extends ConsumerState<BootstrapScreen> {
       appBar: AppBar(
         title: const Text('Initialisation des donnees'),
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,

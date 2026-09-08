@@ -12,6 +12,7 @@ import 'package:aurora_drilling_report/features/auth/presentation/registration_s
 import 'package:aurora_drilling_report/shared/providers/api_providers.dart';
 import 'package:aurora_drilling_report/shared/providers/app_providers.dart';
 import 'package:aurora_drilling_report/shared/providers/report_draft_provider.dart';
+import 'package:dio/dio.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
@@ -46,6 +47,8 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
   String? _existingClientSignature;
   final List<Offset?> _clientSignaturePoints = <Offset?>[];
   final List<Offset?> _companySignaturePoints = <Offset?>[];
+  bool _isClientSignatureLocked = false;
+  bool _isCompanySignatureLocked = false;
   final TextEditingController _hourMeterController = TextEditingController();
   final TextEditingController _fuelMeterController = TextEditingController();
 
@@ -77,6 +80,8 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
     _companySignaturePoints
       ..clear()
       ..addAll(_fromDraftSignature(draft.companySignature));
+    _isClientSignatureLocked = _signatureHasContent(_clientSignaturePoints, _existingClientSignature);
+    _isCompanySignatureLocked = _signatureHasContent(_companySignaturePoints, _existingForageSignature);
     _hourMeterController.text = draft.hourMeter;
     _fuelMeterController.text = draft.fuelMeter;
 
@@ -973,6 +978,11 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
         ),
         (route) => false,
       );
+    } on DioException catch (e) {
+      if (!mounted) {
+        return;
+      }
+      await _showErrorDialog(_networkErrorMessage(e));
     } catch (e) {
       if (!mounted) {
         return;
@@ -996,6 +1006,28 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
 
   String _cleanErrorMessage(Object error) {
     return error.toString().replaceFirst('Exception: ', '').trim();
+  }
+
+  String _networkErrorMessage(DioException e) {
+    switch (e.type) {
+      case DioExceptionType.connectionError:
+      case DioExceptionType.connectionTimeout:
+      case DioExceptionType.sendTimeout:
+      case DioExceptionType.receiveTimeout:
+        return 'Pas de connexion internet.\n\n'
+            'Verifiez que la tablette est connectee internet';
+      case DioExceptionType.badResponse:
+        final status = e.response?.statusCode;
+        return 'Le serveur a repondu avec une erreur${status != null ? ' (code $status)' : ''}.\n\n'
+            'Reessaie plus tard ou contacte l\'administrateur.';
+      case DioExceptionType.cancel:
+        return 'Synchronisation annulee.';
+      case DioExceptionType.badCertificate:
+        return 'Certificat serveur invalide. Contacte l\'administrateur.';
+      case DioExceptionType.unknown:
+        return 'Impossible de joindre le serveur.\n\n'
+            'Verifie ta connexion internet et reessaie.';
+    }
   }
 
   String _formatFuel(double value) {
@@ -1215,6 +1247,7 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
             width: 150,
             child: Text(
               label,
+              softWrap: true,
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: emphasize ? FontWeight.w700 : FontWeight.w600,
@@ -1591,6 +1624,14 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
     onChanged();
   }
 
+  bool _signatureHasContent(List<Offset?> points, String? base64Value) {
+    if (points.any((point) => point != null)) {
+      return true;
+    }
+    final value = base64Value?.trim() ?? '';
+    return value.isNotEmpty;
+  }
+
   Uint8List? _decodeSignatureImage(String? base64Value) {
     final value = base64Value?.trim() ?? '';
     if (value.isEmpty) {
@@ -1610,6 +1651,8 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
     String? existingSignatureBase64,
     required VoidCallback onClear,
     required VoidCallback onChanged,
+    required bool isLocked,
+    required VoidCallback onUnlock,
   }) {
     final hasSignature = points.any((point) => point != null);
     final existingSignatureBytes =
@@ -1652,6 +1695,15 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
                   ],
                 ),
               ),
+              if (isLocked)
+                TextButton.icon(
+                  onPressed: onUnlock,
+                  icon: const Icon(Icons.edit_outlined, size: 18),
+                  label: const Text('Modifier'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFF2457C5),
+                  ),
+                ),
               TextButton.icon(
                 onPressed: onClear,
                 icon: const Icon(Icons.restart_alt_outlined, size: 18),
@@ -1705,14 +1757,43 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
                       painter: _SignaturePainter(points),
                     ),
                   ),
-                  Positioned.fill(
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onPanStart: (details) => _addSignaturePoint(points, details.localPosition, onChanged),
-                      onPanUpdate: (details) => _addSignaturePoint(points, details.localPosition, onChanged),
-                      onPanEnd: (_) => _endSignatureStroke(points, onChanged),
+                  if (!isLocked)
+                    Positioned.fill(
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onPanStart: (details) => _addSignaturePoint(points, details.localPosition, onChanged),
+                        onPanUpdate: (details) => _addSignaturePoint(points, details.localPosition, onChanged),
+                        onPanEnd: (_) => _endSignatureStroke(points, onChanged),
+                      ),
                     ),
-                  ),
+                  if (isLocked)
+                    Positioned(
+                      right: 8,
+                      top: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2457C5).withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(color: const Color(0xFFD7E0ED)),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.lock_outline, size: 14, color: Color(0xFF2457C5)),
+                            SizedBox(width: 4),
+                            Text(
+                              'Verrouille',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF2457C5),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   if (!hasSignature)
                     Positioned.fill(
                       child: IgnorePointer(
@@ -1781,10 +1862,13 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
                 points: _clientSignaturePoints,
                 existingSignatureBase64: _existingClientSignature,
                 onClear: () {
+                  setState(() => _isClientSignatureLocked = false);
                   _existingClientSignature = null;
                   _clearSignature(_clientSignaturePoints, _saveClientSignature);
                 },
                 onChanged: _saveClientSignature,
+                isLocked: _isClientSignatureLocked,
+                onUnlock: () => setState(() => _isClientSignatureLocked = false),
               ),
               const SizedBox(height: 14),
               _buildSignaturePanel(
@@ -1793,10 +1877,13 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
                 points: _companySignaturePoints,
                 existingSignatureBase64: _existingForageSignature,
                 onClear: () {
+                  setState(() => _isCompanySignatureLocked = false);
                   _existingForageSignature = null;
                   _clearSignature(_companySignaturePoints, _saveCompanySignature);
                 },
                 onChanged: _saveCompanySignature,
+                isLocked: _isCompanySignatureLocked,
+                onUnlock: () => setState(() => _isCompanySignatureLocked = false),
               ),
             ],
           );
@@ -1812,10 +1899,13 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
                 points: _clientSignaturePoints,
                 existingSignatureBase64: _existingClientSignature,
                 onClear: () {
+                  setState(() => _isClientSignatureLocked = false);
                   _existingClientSignature = null;
                   _clearSignature(_clientSignaturePoints, _saveClientSignature);
                 },
                 onChanged: _saveClientSignature,
+                isLocked: _isClientSignatureLocked,
+                onUnlock: () => setState(() => _isClientSignatureLocked = false),
               ),
             ),
             const SizedBox(width: 14),
@@ -1826,10 +1916,13 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
                 points: _companySignaturePoints,
                 existingSignatureBase64: _existingForageSignature,
                 onClear: () {
+                  setState(() => _isCompanySignatureLocked = false);
                   _existingForageSignature = null;
                   _clearSignature(_companySignaturePoints, _saveCompanySignature);
                 },
                 onChanged: _saveCompanySignature,
+                isLocked: _isCompanySignatureLocked,
+                onUnlock: () => setState(() => _isCompanySignatureLocked = false),
               ),
             ),
           ],
@@ -2036,79 +2129,108 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
                     child: _buildSignatureSection(),
                   ),
                   const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () => Navigator.of(context).pop(),
-                          icon: const Icon(Icons.arrow_back_ios_new, size: 16),
-                          label: const Text('Precedent'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF23324D),
-                            side: const BorderSide(color: Color(0xFFCBD6E5)),
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                            backgroundColor: Colors.white,
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      // Sur ecran etroit (< 560px), on empile les boutons verticalement.
+                      final isNarrow = constraints.maxWidth < 560;
+                      final backButton = OutlinedButton.icon(
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(Icons.arrow_back_ios_new, size: 16),
+                        label: const Flexible(
+                          child: Text('Precedent', overflow: TextOverflow.ellipsis),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF23324D),
+                          side: const BorderSide(color: Color(0xFFCBD6E5)),
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                          backgroundColor: Colors.white,
+                        ),
+                      );
+                      final syncButton = ElevatedButton.icon(
+                        onPressed: (_saving || _syncing) ? null : _syncCurrentFeuille,
+                        icon: _syncing
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(Icons.sync_outlined),
+                        label: Flexible(
+                          child: Text(
+                            _syncing ? 'Synchronisation...' : 'Synchroniser',
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                      ),
-                      if (_canSyncCurrentFeuille) ...[
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: (_saving || _syncing) ? null : _syncCurrentFeuille,
-                            icon: _syncing
-                                ? const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : const Icon(Icons.sync_outlined),
-                            label: Text(_syncing ? 'Synchronisation...' : 'Synchroniser'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF0F9D8A),
-                              foregroundColor: Colors.white,
-                              elevation: 0,
-                              padding: const EdgeInsets.symmetric(vertical: 18),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(18),
-                              ),
-                            ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0F9D8A),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(vertical: 18),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(18),
                           ),
                         ),
-                      ],
-                      const SizedBox(width: 12),
-                      Expanded(
-                        flex: 2,
-                        child: ElevatedButton.icon(
-                          onPressed: (_saving || _syncing) ? null : _saveAllLocally,
-                          icon: _saving
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                )
-                              : const Icon(Icons.save_outlined),
-                          label: Text(
+                      );
+                      final saveButton = ElevatedButton.icon(
+                        onPressed: (_saving || _syncing) ? null : _saveAllLocally,
+                        icon: _saving
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              )
+                            : const Icon(Icons.save_outlined),
+                        label: Flexible(
+                          child: Text(
                             _saving
                                 ? 'Enregistrement...'
                                 : widget.openedFromList
                                 ? 'Mettre a jour localement'
                                 : 'Enregistrer localement',
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF13233F),
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                            padding: const EdgeInsets.symmetric(vertical: 18),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                      ),
-                    ],
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF13233F),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(vertical: 18),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                        ),
+                      );
+
+                      if (isNarrow) {
+                        // Pile verticale : Enregistrer (principal) en haut, puis Sync, puis Precedent
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            saveButton,
+                            if (_canSyncCurrentFeuille) ...[
+                              const SizedBox(height: 12),
+                              syncButton,
+                            ],
+                            const SizedBox(height: 12),
+                            backButton,
+                          ],
+                        );
+                      }
+
+                      return Row(
+                        children: [
+                          Expanded(child: backButton),
+                          if (_canSyncCurrentFeuille) ...[
+                            const SizedBox(width: 12),
+                            Expanded(child: syncButton),
+                          ],
+                          const SizedBox(width: 12),
+                          Expanded(flex: 2, child: saveButton),
+                        ],
+                      );
+                    },
                   ),
                 ],
               ),

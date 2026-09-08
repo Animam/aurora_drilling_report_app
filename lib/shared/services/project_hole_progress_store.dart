@@ -1,14 +1,15 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
+
 class ProjectHoleProgressStore {
-  static const _folderPath = r'C:\Users\Parfait-SEDOGO\DevOps\forages_mobile_data';
   static const _fileName = 'project_hole_progress_map.json';
 
   Future<File> _getFile() async {
-    final folder = Directory(_folderPath);
-    await folder.create(recursive: true);
-    return File('$_folderPath\\$_fileName');
+    final folder = await getApplicationDocumentsDirectory();
+    return File(p.join(folder.path, _fileName));
   }
 
   Future<Map<String, Map<String, int>>> readMap() async {

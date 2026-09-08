@@ -289,9 +289,13 @@ class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
 
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       builder: (BuildContext builder) {
+        final mq = MediaQuery.of(builder);
+        final targetHeight = (mq.size.height - mq.viewInsets.bottom) / 3;
         return Container(
-          height: MediaQuery.of(context).size.height / 3,
+          height: targetHeight.clamp(240.0, 380.0),
+          padding: EdgeInsets.only(bottom: mq.viewInsets.bottom),
           color: Colors.white,
           child: Column(
             children: [
@@ -386,6 +390,10 @@ class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
               });
             }
 
+            final mq = MediaQuery.of(context);
+            final rawListMaxHeight = mq.size.height - mq.viewInsets.bottom - 320;
+            final listMaxHeight = rawListMaxHeight.clamp(120.0, 320.0);
+
             return AlertDialog(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
               title: Text(
@@ -419,25 +427,27 @@ class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
                         child: Text('Aucun employe disponible.'),
                       )
                     else
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(maxHeight: 320),
-                        child: ListView.separated(
-                          shrinkWrap: true,
-                          itemCount: filtered.length,
-                          separatorBuilder: (context, index) => const SizedBox(height: 8),
-                          itemBuilder: (context, index) {
-                            final employee = filtered[index];
-                            return Material(
-                              color: const Color(0xFFF8FAFC),
-                              borderRadius: BorderRadius.circular(16),
-                              child: ListTile(
-                                title: Text(employee.name, style: const TextStyle(fontWeight: FontWeight.w700)),
-                                subtitle: Text(employee.jobName ?? 'Fonction non renseignee'),
-                                trailing: const Icon(Icons.add_circle_outline_rounded),
-                                onTap: () => Navigator.pop(context, employee),
-                              ),
-                            );
-                          },
+                      Flexible(
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(maxHeight: listMaxHeight),
+                          child: ListView.separated(
+                            shrinkWrap: true,
+                            itemCount: filtered.length,
+                            separatorBuilder: (context, index) => const SizedBox(height: 8),
+                            itemBuilder: (context, index) {
+                              final employee = filtered[index];
+                              return Material(
+                                color: const Color(0xFFF8FAFC),
+                                borderRadius: BorderRadius.circular(16),
+                                child: ListTile(
+                                  title: Text(employee.name, style: const TextStyle(fontWeight: FontWeight.w700)),
+                                  subtitle: Text(employee.jobName ?? 'Fonction non renseignee'),
+                                  trailing: const Icon(Icons.add_circle_outline_rounded),
+                                  onTap: () => Navigator.pop(context, employee),
+                                ),
+                              );
+                            },
+                          ),
                         ),
                       ),
                   ],

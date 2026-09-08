@@ -1,9 +1,11 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../shared/providers/api_providers.dart';
 import '../../../shared/providers/app_providers.dart';
 import '../../../shared/providers/report_draft_provider.dart';
+import '../../../shared/services/offline_auth_service.dart';
 import '../../bootstrap/presentation/bootstrap_screen.dart';
 import 'post_login_menu_screen.dart';
 
@@ -54,6 +56,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Future<void> _login() async {
     final login = _loginController.text.trim();
     final password = _passwordController.text;
+    final db = _dbController.text.trim();
 
     if (login.isEmpty) {
       await _showErrorDialog('Email obligatoire');
@@ -70,79 +73,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     });
 
     try {
-      await ref.read(cookieJarProvider).deleteAll();
-      final authApi = ref.read(authApiProvider);
-      await authApi.login(
-        db: _dbController.text.trim(),
-        login: login,
-        password: password,
-      );
-
-      final bootstrapResult = await ref.read(bootstrapApiProvider).fetchBootstrap();
-      final companyData = Map<String, dynamic>.from(bootstrapResult['company'] as Map? ?? const {});
-      final employeeContext =
-          Map<String, dynamic>.from(bootstrapResult['employee_context'] as Map? ?? const {});
-      final companyId = (companyData['id'] as num?)?.toInt();
-      final companyName = companyData['name']?.toString() ?? '';
-      final employeeId = (employeeContext['employee_id'] as num?)?.toInt();
-      final employeeName = employeeContext['employee_name']?.toString() ?? '';
-      final mobileScopeCache = ref.read(mobileScopeCacheProvider);
-      final companyLock = ref.read(tabletCompanyLockProvider);
-      final db = ref.read(appDatabaseProvider);
-      final cachedScope = await mobileScopeCache.readScope();
-      final binding = await companyLock.readBinding();
-      final cachedCompanyId =
-          (cachedScope?['company_id'] as int?) ?? (binding?['company_id'] as int?);
-      final hasUnsyncedData = await db.hasUnsyncedLocalFeuilles();
-
-      if (companyId == null || companyName.isEmpty) {
-        await authApi.logout();
-        await ref.read(cookieJarProvider).deleteAll();
-        throw Exception('Societe mobile introuvable dans le bootstrap');
-      }
-
-      if (employeeId == null || employeeName.isEmpty) {
-        await authApi.logout();
-        await ref.read(cookieJarProvider).deleteAll();
-        throw Exception('Contexte employe mobile introuvable dans le bootstrap');
-      }
-
-      if (hasUnsyncedData && cachedCompanyId == null) {
-        await authApi.logout();
-        await ref.read(cookieJarProvider).deleteAll();
-        throw Exception(
-          'Des donnees non synchronisees existent sur cette tablette. Impossible de verifier le changement de societe tant que ces donnees ne sont pas synchronisees ou supprimees.',
-        );
-      }
-
-      if (cachedCompanyId != null && cachedCompanyId != companyId) {
-        if (hasUnsyncedData) {
-          await authApi.logout();
-          await ref.read(cookieJarProvider).deleteAll();
-          throw Exception(
-            'Des donnees non synchronisees existent sur cette tablette. Synchronisez ou supprimez-les avant de changer de societe.',
-          );
-        }
-
-        await db.clearAllLocalData();
-        await ref.read(projectDrillingTaskStoreProvider).clear();
-        await ref.read(projectHoleProgressStoreProvider).clear();
-        await ref.read(projectDrillingTypeStoreProvider).clear();
-        await ref.read(materialTagStoreProvider).clear();
-        await mobileScopeCache.clear();
-        await companyLock.clearBinding();
-        ref.read(reportDraftProvider.notifier).reset();
-      }
-
-      await ensureReferenceData(ref, bootstrapResult: bootstrapResult);
-
-      if (!mounted) return;
-
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => const PostLoginMenuScreen(),
-        ),
-      );
+      await _performOnlineLogin(db: db, login: login, password: password);
+    } on DioException catch (_) {
+      // Reseau injoignable / serveur down → tentative de login offline
+      await _performOfflineLogin(db: db, login: login, password: password);
     } catch (e) {
       final message = e.toString().replaceFirst('Exception: ', '');
       if (mounted) {
@@ -154,6 +88,139 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           _loading = false;
         });
       }
+    }
+  }
+
+  Future<void> _performOnlineLogin({
+    required String db,
+    required String login,
+    required String password,
+  }) async {
+    await ref.read(cookieJarProvider).deleteAll();
+    final authApi = ref.read(authApiProvider);
+    await authApi.login(
+      db: db,
+      login: login,
+      password: password,
+    );
+
+    final bootstrapResult = await ref.read(bootstrapApiProvider).fetchBootstrap();
+    final companyData = Map<String, dynamic>.from(bootstrapResult['company'] as Map? ?? const {});
+    final employeeContext =
+        Map<String, dynamic>.from(bootstrapResult['employee_context'] as Map? ?? const {});
+    final companyId = (companyData['id'] as num?)?.toInt();
+    final companyName = companyData['name']?.toString() ?? '';
+    final employeeId = (employeeContext['employee_id'] as num?)?.toInt();
+    final employeeName = employeeContext['employee_name']?.toString() ?? '';
+    final mobileScopeCache = ref.read(mobileScopeCacheProvider);
+    final companyLock = ref.read(tabletCompanyLockProvider);
+    final database = ref.read(appDatabaseProvider);
+    final cachedScope = await mobileScopeCache.readScope();
+    final binding = await companyLock.readBinding();
+    final cachedCompanyId =
+        (cachedScope?['company_id'] as int?) ?? (binding?['company_id'] as int?);
+    final hasUnsyncedData = await database.hasUnsyncedLocalFeuilles();
+
+    if (companyId == null || companyName.isEmpty) {
+      await authApi.logout();
+      await ref.read(cookieJarProvider).deleteAll();
+      throw Exception('Societe mobile introuvable dans le bootstrap');
+    }
+
+    if (employeeId == null || employeeName.isEmpty) {
+      await authApi.logout();
+      await ref.read(cookieJarProvider).deleteAll();
+      throw Exception('Contexte employe mobile introuvable dans le bootstrap');
+    }
+
+    if (hasUnsyncedData && cachedCompanyId == null) {
+      await authApi.logout();
+      await ref.read(cookieJarProvider).deleteAll();
+      throw Exception(
+        'Des donnees non synchronisees existent sur cette tablette. Impossible de verifier le changement de societe tant que ces donnees ne sont pas synchronisees ou supprimees.',
+      );
+    }
+
+    if (cachedCompanyId != null && cachedCompanyId != companyId) {
+      if (hasUnsyncedData) {
+        await authApi.logout();
+        await ref.read(cookieJarProvider).deleteAll();
+        throw Exception(
+          'Des donnees non synchronisees existent sur cette tablette. Synchronisez ou supprimez-les avant de changer de societe.',
+        );
+      }
+
+      await database.clearAllLocalData();
+      await ref.read(projectDrillingTaskStoreProvider).clear();
+      await ref.read(projectHoleProgressStoreProvider).clear();
+      await ref.read(projectDrillingTypeStoreProvider).clear();
+      await ref.read(materialTagStoreProvider).clear();
+      await mobileScopeCache.clear();
+      await companyLock.clearBinding();
+      await ref.read(offlineAuthServiceProvider).clear();
+      ref.read(reportDraftProvider.notifier).reset();
+    }
+
+    await ensureReferenceData(ref, bootstrapResult: bootstrapResult);
+
+    // Login online complet et donnees en cache OK → on peut activer le login offline
+    await ref.read(offlineAuthServiceProvider).saveCredentials(
+          db: db,
+          login: login,
+          password: password,
+        );
+
+    if (!mounted) return;
+
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => const PostLoginMenuScreen(),
+      ),
+    );
+  }
+
+  Future<void> _performOfflineLogin({
+    required String db,
+    required String login,
+    required String password,
+  }) async {
+    final offlineAuth = ref.read(offlineAuthServiceProvider);
+    final result = await offlineAuth.validateOffline(
+      db: db,
+      login: login,
+      password: password,
+    );
+
+    if (result == OfflineAuthResult.valid) {
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => const PostLoginMenuScreen(),
+        ),
+      );
+      return;
+    }
+
+    String message;
+    switch (result) {
+      case OfflineAuthResult.noCredentialsStored:
+      case OfflineAuthResult.credentialsMismatch:
+        message =
+            'Pas de reseau et aucun compte enregistre pour cet utilisateur sur cette tablette. Une premiere connexion avec internet est necessaire.';
+        break;
+      case OfflineAuthResult.wrongPassword:
+        message = 'Mot de passe incorrect';
+        break;
+      case OfflineAuthResult.expired:
+        message =
+            'Session hors-ligne expiree (7 jours max sans reconnexion). Veuillez vous reconnecter avec internet.';
+        break;
+      case OfflineAuthResult.valid:
+        return;
+    }
+
+    if (mounted) {
+      await _showErrorDialog(message);
     }
   }
 

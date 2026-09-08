@@ -158,6 +158,28 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
     return null;
   }
 
+  void _resetLocationIfOutOfScope() {
+    if (_selectedLocationOdooId == null) {
+      return;
+    }
+    final visible = _visibleLocations();
+    final stillVisible = visible.any((loc) => loc.odooId == _selectedLocationOdooId);
+    if (!stillVisible) {
+      setState(() => _selectedLocationOdooId = null);
+      ref.read(reportDraftProvider.notifier).setLocationOdooId(null);
+    }
+  }
+
+  List<Location> _visibleLocations() {
+    final project = _resolveProjectForSelection();
+    if (project == null) {
+      return _locations.where((loc) => loc.projectOdooId == null).toList();
+    }
+    return _locations
+        .where((loc) => loc.projectOdooId == null || loc.projectOdooId == project.odooId)
+        .toList();
+  }
+
   double _currentHourAsDecimal() {
     final now = DateTime.now();
     return now.hour + (now.minute / 60.0);
@@ -388,6 +410,69 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
   }
 
 
+  Widget _buildLocationButtons({required bool enabled}) {
+    final visible = _visibleLocations();
+    if (visible.isEmpty) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF7FAFC),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: Text(
+          _selectedForeuseOdooId == null
+              ? 'Selectionnez d abord une foreuse.'
+              : 'Aucune location disponible pour ce projet.',
+          style: const TextStyle(
+            color: Color(0xFF6B7280),
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      );
+    }
+
+    return Opacity(
+      opacity: enabled ? 1 : 0.55,
+      child: AbsorbPointer(
+        absorbing: !enabled,
+        child: Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: visible.map((item) {
+            final selected = _selectedLocationOdooId == item.odooId;
+            return InkWell(
+              onTap: () {
+                setState(() => _selectedLocationOdooId = item.odooId);
+                ref.read(reportDraftProvider.notifier).setLocationOdooId(item.odooId);
+              },
+              borderRadius: BorderRadius.circular(14),
+              child: Ink(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                decoration: BoxDecoration(
+                  color: selected ? const Color(0xFF1E3A5F) : const Color(0xFFF7FAFC),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: selected ? const Color(0xFF1E3A5F) : const Color(0xFFE2E8F0),
+                  ),
+                ),
+                child: Text(
+                  item.name,
+                  style: TextStyle(
+                    color: selected ? Colors.white : const Color(0xFF374151),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            );
+          }).toList(growable: false),
+        ),
+      ),
+    );
+  }
+
   Widget _buildForeuseButtons() {
     if (_foreuses.isEmpty) {
       return Container(
@@ -418,6 +503,7 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
             setState(() => _selectedForeuseOdooId = item.odooId);
             ref.read(reportDraftProvider.notifier).setForeuseOdooId(item.odooId);
             _applyAutoQuartFromSelection(force: true);
+            _resetLocationIfOutOfScope();
           },
           borderRadius: BorderRadius.circular(14),
           child: Ink(
@@ -602,23 +688,7 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                           _buildShiftButtons(enabled: quartEnabled),
                           const SizedBox(height: 25),
                           _buildLabel('Location *'),
-                          _buildDropdownField<int>(
-                            hint: locationEnabled ? 'Choisissez...' : 'Selectionnez d abord le quart',
-                            value: _selectedLocationOdooId,
-                            enabled: locationEnabled,
-                            items: _locations
-                                .map(
-                                  (item) => DropdownMenuItem<int>(
-                                    value: item.odooId,
-                                    child: Text(item.name),
-                                  ),
-                                )
-                                .toList(),
-                            onChanged: (value) {
-                              setState(() => _selectedLocationOdooId = value);
-                              ref.read(reportDraftProvider.notifier).setLocationOdooId(value);
-                            },
-                          ),
+                          _buildLocationButtons(enabled: locationEnabled),
                           const SizedBox(height: 25),
                           _buildLabel('Date *'),
                           AbsorbPointer(

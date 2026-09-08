@@ -101,7 +101,10 @@ class _DrillingConsumableFormState extends ConsumerState<DrillingConsumableForm>
 
   @override
   void dispose() {
-    _persistDraft();
+    // Ne pas appeler _persistDraft() ici : il fait ref.read(...notifier).setMaterielLogs
+    // + Future.microtask, ce qui peut faire tourner du code apres que ce State soit
+    // detruit et provoquer l'assertion _dependents.isEmpty. Le draft est deja persiste
+    // a chaque onChanged/setState precedent.
     for (final item in _items) {
       item.dispose();
     }
@@ -159,10 +162,21 @@ class _DrillingConsumableFormState extends ConsumerState<DrillingConsumableForm>
   }
 
   void _persistDraft() {
-    ref.read(reportDraftProvider.notifier).setMaterielLogs(
-          _items.map((item) => item.toReportDraft()).toList(growable: false),
-        );
-    Future.microtask(_autoSaveMaterielLogs);
+    if (!mounted) {
+      return;
+    }
+    // Differer a apres le frame courant pour eviter que le notify de Riverpod
+    // ne se propage pendant qu'un rebuild est deja en cours (source du crash
+    // _dependents.isEmpty lors du clic 'Valider' du clavier numerique).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      ref.read(reportDraftProvider.notifier).setMaterielLogs(
+            _items.map((item) => item.toReportDraft()).toList(growable: false),
+          );
+      _autoSaveMaterielLogs();
+    });
   }
 
   Future<void> _autoSaveMaterielLogs() async {
@@ -222,6 +236,10 @@ class _DrillingConsumableFormState extends ConsumerState<DrillingConsumableForm>
               });
             }
 
+            final mq = MediaQuery.of(context);
+            final rawListMaxHeight = mq.size.height - mq.viewInsets.bottom - 320;
+            final listMaxHeight = rawListMaxHeight.clamp(120.0, 360.0);
+
             return AlertDialog(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
               title: const Text(
@@ -255,28 +273,30 @@ class _DrillingConsumableFormState extends ConsumerState<DrillingConsumableForm>
                         child: Text('Aucun materiel disponible.'),
                       )
                     else
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(maxHeight: 360),
-                        child: ListView.separated(
-                          shrinkWrap: true,
-                          itemCount: filtered.length,
-                          separatorBuilder: (context, index) => const SizedBox(height: 8),
-                          itemBuilder: (context, index) {
-                            final material = filtered[index];
-                            return Material(
-                              color: const Color(0xFFF8FAFC),
-                              borderRadius: BorderRadius.circular(16),
-                              child: ListTile(
-                                title: Text(
-                                  material.reference?.isNotEmpty == true ? material.reference! : '--',
-                                  style: const TextStyle(fontWeight: FontWeight.w800),
+                      Flexible(
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(maxHeight: listMaxHeight),
+                          child: ListView.separated(
+                            shrinkWrap: true,
+                            itemCount: filtered.length,
+                            separatorBuilder: (context, index) => const SizedBox(height: 8),
+                            itemBuilder: (context, index) {
+                              final material = filtered[index];
+                              return Material(
+                                color: const Color(0xFFF8FAFC),
+                                borderRadius: BorderRadius.circular(16),
+                                child: ListTile(
+                                  title: Text(
+                                    material.reference?.isNotEmpty == true ? material.reference! : '--',
+                                    style: const TextStyle(fontWeight: FontWeight.w800),
+                                  ),
+                                  subtitle: Text(material.description),
+                                  trailing: const Icon(Icons.add_circle_outline_rounded),
+                                  onTap: () => Navigator.pop(context, material),
                                 ),
-                                subtitle: Text(material.description),
-                                trailing: const Icon(Icons.add_circle_outline_rounded),
-                                onTap: () => Navigator.pop(context, material),
-                              ),
-                            );
-                          },
+                              );
+                            },
+                          ),
                         ),
                       ),
                   ],

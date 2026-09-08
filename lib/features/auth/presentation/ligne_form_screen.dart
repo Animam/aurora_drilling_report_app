@@ -471,9 +471,13 @@ class _LigneTempsScreenState extends ConsumerState<LigneTempsScreen> {
 
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       builder: (BuildContext builder) {
+        final mq = MediaQuery.of(builder);
+        final targetHeight = (mq.size.height - mq.viewInsets.bottom) / 3;
         return Container(
-          height: MediaQuery.of(context).size.height / 3,
+          height: targetHeight.clamp(240.0, 380.0),
+          padding: EdgeInsets.only(bottom: mq.viewInsets.bottom),
           color: Colors.white,
           child: Column(
             children: [

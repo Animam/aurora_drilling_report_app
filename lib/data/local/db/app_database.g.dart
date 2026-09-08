@@ -2053,6 +2053,17 @@ class $LocationsTable extends Locations
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _projectOdooIdMeta = const VerificationMeta(
+    'projectOdooId',
+  );
+  @override
+  late final GeneratedColumn<int> projectOdooId = GeneratedColumn<int>(
+    'project_odoo_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _updatedAtMeta = const VerificationMeta(
     'updatedAt',
   );
@@ -2065,7 +2076,13 @@ class $LocationsTable extends Locations
     requiredDuringInsert: false,
   );
   @override
-  List<GeneratedColumn> get $columns => [localId, odooId, name, updatedAt];
+  List<GeneratedColumn> get $columns => [
+    localId,
+    odooId,
+    name,
+    projectOdooId,
+    updatedAt,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -2100,6 +2117,15 @@ class $LocationsTable extends Locations
     } else if (isInserting) {
       context.missing(_nameMeta);
     }
+    if (data.containsKey('project_odoo_id')) {
+      context.handle(
+        _projectOdooIdMeta,
+        projectOdooId.isAcceptableOrUnknown(
+          data['project_odoo_id']!,
+          _projectOdooIdMeta,
+        ),
+      );
+    }
     if (data.containsKey('updated_at')) {
       context.handle(
         _updatedAtMeta,
@@ -2127,6 +2153,10 @@ class $LocationsTable extends Locations
         DriftSqlType.string,
         data['${effectivePrefix}name'],
       )!,
+      projectOdooId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}project_odoo_id'],
+      ),
       updatedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}updated_at'],
@@ -2144,11 +2174,13 @@ class Location extends DataClass implements Insertable<Location> {
   final int localId;
   final int odooId;
   final String name;
+  final int? projectOdooId;
   final String? updatedAt;
   const Location({
     required this.localId,
     required this.odooId,
     required this.name,
+    this.projectOdooId,
     this.updatedAt,
   });
   @override
@@ -2157,6 +2189,9 @@ class Location extends DataClass implements Insertable<Location> {
     map['local_id'] = Variable<int>(localId);
     map['odoo_id'] = Variable<int>(odooId);
     map['name'] = Variable<String>(name);
+    if (!nullToAbsent || projectOdooId != null) {
+      map['project_odoo_id'] = Variable<int>(projectOdooId);
+    }
     if (!nullToAbsent || updatedAt != null) {
       map['updated_at'] = Variable<String>(updatedAt);
     }
@@ -2168,6 +2203,9 @@ class Location extends DataClass implements Insertable<Location> {
       localId: Value(localId),
       odooId: Value(odooId),
       name: Value(name),
+      projectOdooId: projectOdooId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(projectOdooId),
       updatedAt: updatedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(updatedAt),
@@ -2183,6 +2221,7 @@ class Location extends DataClass implements Insertable<Location> {
       localId: serializer.fromJson<int>(json['localId']),
       odooId: serializer.fromJson<int>(json['odooId']),
       name: serializer.fromJson<String>(json['name']),
+      projectOdooId: serializer.fromJson<int?>(json['projectOdooId']),
       updatedAt: serializer.fromJson<String?>(json['updatedAt']),
     );
   }
@@ -2193,6 +2232,7 @@ class Location extends DataClass implements Insertable<Location> {
       'localId': serializer.toJson<int>(localId),
       'odooId': serializer.toJson<int>(odooId),
       'name': serializer.toJson<String>(name),
+      'projectOdooId': serializer.toJson<int?>(projectOdooId),
       'updatedAt': serializer.toJson<String?>(updatedAt),
     };
   }
@@ -2201,11 +2241,15 @@ class Location extends DataClass implements Insertable<Location> {
     int? localId,
     int? odooId,
     String? name,
+    Value<int?> projectOdooId = const Value.absent(),
     Value<String?> updatedAt = const Value.absent(),
   }) => Location(
     localId: localId ?? this.localId,
     odooId: odooId ?? this.odooId,
     name: name ?? this.name,
+    projectOdooId: projectOdooId.present
+        ? projectOdooId.value
+        : this.projectOdooId,
     updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
   );
   Location copyWithCompanion(LocationsCompanion data) {
@@ -2213,6 +2257,9 @@ class Location extends DataClass implements Insertable<Location> {
       localId: data.localId.present ? data.localId.value : this.localId,
       odooId: data.odooId.present ? data.odooId.value : this.odooId,
       name: data.name.present ? data.name.value : this.name,
+      projectOdooId: data.projectOdooId.present
+          ? data.projectOdooId.value
+          : this.projectOdooId,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
   }
@@ -2223,13 +2270,15 @@ class Location extends DataClass implements Insertable<Location> {
           ..write('localId: $localId, ')
           ..write('odooId: $odooId, ')
           ..write('name: $name, ')
+          ..write('projectOdooId: $projectOdooId, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(localId, odooId, name, updatedAt);
+  int get hashCode =>
+      Object.hash(localId, odooId, name, projectOdooId, updatedAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2237,6 +2286,7 @@ class Location extends DataClass implements Insertable<Location> {
           other.localId == this.localId &&
           other.odooId == this.odooId &&
           other.name == this.name &&
+          other.projectOdooId == this.projectOdooId &&
           other.updatedAt == this.updatedAt);
 }
 
@@ -2244,17 +2294,20 @@ class LocationsCompanion extends UpdateCompanion<Location> {
   final Value<int> localId;
   final Value<int> odooId;
   final Value<String> name;
+  final Value<int?> projectOdooId;
   final Value<String?> updatedAt;
   const LocationsCompanion({
     this.localId = const Value.absent(),
     this.odooId = const Value.absent(),
     this.name = const Value.absent(),
+    this.projectOdooId = const Value.absent(),
     this.updatedAt = const Value.absent(),
   });
   LocationsCompanion.insert({
     this.localId = const Value.absent(),
     required int odooId,
     required String name,
+    this.projectOdooId = const Value.absent(),
     this.updatedAt = const Value.absent(),
   }) : odooId = Value(odooId),
        name = Value(name);
@@ -2262,12 +2315,14 @@ class LocationsCompanion extends UpdateCompanion<Location> {
     Expression<int>? localId,
     Expression<int>? odooId,
     Expression<String>? name,
+    Expression<int>? projectOdooId,
     Expression<String>? updatedAt,
   }) {
     return RawValuesInsertable({
       if (localId != null) 'local_id': localId,
       if (odooId != null) 'odoo_id': odooId,
       if (name != null) 'name': name,
+      if (projectOdooId != null) 'project_odoo_id': projectOdooId,
       if (updatedAt != null) 'updated_at': updatedAt,
     });
   }
@@ -2276,12 +2331,14 @@ class LocationsCompanion extends UpdateCompanion<Location> {
     Value<int>? localId,
     Value<int>? odooId,
     Value<String>? name,
+    Value<int?>? projectOdooId,
     Value<String?>? updatedAt,
   }) {
     return LocationsCompanion(
       localId: localId ?? this.localId,
       odooId: odooId ?? this.odooId,
       name: name ?? this.name,
+      projectOdooId: projectOdooId ?? this.projectOdooId,
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
@@ -2298,6 +2355,9 @@ class LocationsCompanion extends UpdateCompanion<Location> {
     if (name.present) {
       map['name'] = Variable<String>(name.value);
     }
+    if (projectOdooId.present) {
+      map['project_odoo_id'] = Variable<int>(projectOdooId.value);
+    }
     if (updatedAt.present) {
       map['updated_at'] = Variable<String>(updatedAt.value);
     }
@@ -2310,6 +2370,7 @@ class LocationsCompanion extends UpdateCompanion<Location> {
           ..write('localId: $localId, ')
           ..write('odooId: $odooId, ')
           ..write('name: $name, ')
+          ..write('projectOdooId: $projectOdooId, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
         .toString();
@@ -8311,6 +8372,7 @@ typedef $$LocationsTableCreateCompanionBuilder =
       Value<int> localId,
       required int odooId,
       required String name,
+      Value<int?> projectOdooId,
       Value<String?> updatedAt,
     });
 typedef $$LocationsTableUpdateCompanionBuilder =
@@ -8318,6 +8380,7 @@ typedef $$LocationsTableUpdateCompanionBuilder =
       Value<int> localId,
       Value<int> odooId,
       Value<String> name,
+      Value<int?> projectOdooId,
       Value<String?> updatedAt,
     });
 
@@ -8342,6 +8405,11 @@ class $$LocationsTableFilterComposer
 
   ColumnFilters<String> get name => $composableBuilder(
     column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get projectOdooId => $composableBuilder(
+    column: $table.projectOdooId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -8375,6 +8443,11 @@ class $$LocationsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get projectOdooId => $composableBuilder(
+    column: $table.projectOdooId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get updatedAt => $composableBuilder(
     column: $table.updatedAt,
     builder: (column) => ColumnOrderings(column),
@@ -8398,6 +8471,11 @@ class $$LocationsTableAnnotationComposer
 
   GeneratedColumn<String> get name =>
       $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<int> get projectOdooId => $composableBuilder(
+    column: $table.projectOdooId,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<String> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
@@ -8434,11 +8512,13 @@ class $$LocationsTableTableManager
                 Value<int> localId = const Value.absent(),
                 Value<int> odooId = const Value.absent(),
                 Value<String> name = const Value.absent(),
+                Value<int?> projectOdooId = const Value.absent(),
                 Value<String?> updatedAt = const Value.absent(),
               }) => LocationsCompanion(
                 localId: localId,
                 odooId: odooId,
                 name: name,
+                projectOdooId: projectOdooId,
                 updatedAt: updatedAt,
               ),
           createCompanionCallback:
@@ -8446,11 +8526,13 @@ class $$LocationsTableTableManager
                 Value<int> localId = const Value.absent(),
                 required int odooId,
                 required String name,
+                Value<int?> projectOdooId = const Value.absent(),
                 Value<String?> updatedAt = const Value.absent(),
               }) => LocationsCompanion.insert(
                 localId: localId,
                 odooId: odooId,
                 name: name,
+                projectOdooId: projectOdooId,
                 updatedAt: updatedAt,
               ),
           withReferenceMapper: (p0) => p0

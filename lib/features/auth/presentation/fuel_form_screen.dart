@@ -380,9 +380,15 @@ class _DrillingFuelFormState extends ConsumerState<DrillingFuelForm> {
 
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       builder: (BuildContext builder) {
+        final mq = MediaQuery.of(builder);
+        // Hauteur adaptative : max 1/3 en portrait, clampe entre 240 et 380
+        // pour rester utilisable en landscape.
+        final targetHeight = (mq.size.height - mq.viewInsets.bottom) / 3;
         return Container(
-          height: MediaQuery.of(context).size.height / 3,
+          height: targetHeight.clamp(240.0, 380.0),
+          padding: EdgeInsets.only(bottom: mq.viewInsets.bottom),
           color: Colors.white,
           child: Column(
             children: [
@@ -457,6 +463,10 @@ class _DrillingFuelFormState extends ConsumerState<DrillingFuelForm> {
               });
             }
 
+            final mq = MediaQuery.of(context);
+            final rawListMaxHeight = mq.size.height - mq.viewInsets.bottom - 320;
+            final listMaxHeight = rawListMaxHeight.clamp(120.0, 360.0);
+
             return AlertDialog(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
               title: const Text(
@@ -490,25 +500,27 @@ class _DrillingFuelFormState extends ConsumerState<DrillingFuelForm> {
                         child: Text('Aucun equipement disponible.'),
                       )
                     else
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(maxHeight: 360),
-                        child: ListView.separated(
-                          shrinkWrap: true,
-                          itemCount: filtered.length,
-                          separatorBuilder: (context, index) => const SizedBox(height: 8),
-                          itemBuilder: (context, index) {
-                            final equipment = filtered[index];
-                            return Material(
-                              color: const Color(0xFFF8FAFC),
-                              borderRadius: BorderRadius.circular(16),
-                              child: ListTile(
-                                title: Text(equipment.name, style: const TextStyle(fontWeight: FontWeight.w800)),
-                                subtitle: Text(equipment.categoryName?.isNotEmpty == true ? equipment.categoryName! : '--'),
-                                trailing: const Icon(Icons.add_circle_outline_rounded),
-                                onTap: () => Navigator.pop(context, equipment),
-                              ),
-                            );
-                          },
+                      Flexible(
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(maxHeight: listMaxHeight),
+                          child: ListView.separated(
+                            shrinkWrap: true,
+                            itemCount: filtered.length,
+                            separatorBuilder: (context, index) => const SizedBox(height: 8),
+                            itemBuilder: (context, index) {
+                              final equipment = filtered[index];
+                              return Material(
+                                color: const Color(0xFFF8FAFC),
+                                borderRadius: BorderRadius.circular(16),
+                                child: ListTile(
+                                  title: Text(equipment.name, style: const TextStyle(fontWeight: FontWeight.w800)),
+                                  subtitle: Text(equipment.categoryName?.isNotEmpty == true ? equipment.categoryName! : '--'),
+                                  trailing: const Icon(Icons.add_circle_outline_rounded),
+                                  onTap: () => Navigator.pop(context, equipment),
+                                ),
+                              );
+                            },
+                          ),
                         ),
                       ),
                   ],

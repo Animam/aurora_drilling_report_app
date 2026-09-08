@@ -457,6 +457,17 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
       return null;
     }
 
+    // Si on edite une ligne existante sur ce meme trou, on recupere sa valeur
+    // actuelle. Elle sert a filtrer le serverMax : si la ligne editee est
+    // (probablement) l'origine du serverMax, on ne doit pas se bloquer soi-meme.
+    int? editedLineToDim;
+    if (excludeIndex != null && excludeIndex >= 0 && excludeIndex < _timeLogs.length) {
+      final row = _timeLogs[excludeIndex];
+      if (row.holeNo.text.trim().toLowerCase() == normalizedHole.toLowerCase()) {
+        editedLineToDim = int.tryParse(row.toA.text.trim());
+      }
+    }
+
     final values = <int>[];
     int? serverMax;
     for (final entry in _projectHoleProgressMap.entries) {
@@ -465,14 +476,33 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
         break;
       }
     }
-    if (serverMax != null) {
+    // Si la ligne editee a une toA >= serverMax, la ligne courante est tres
+    // probablement la source du serverMax (sync anterieure de cette feuille).
+    // On ignore serverMax pour ne pas se bloquer soi-meme.
+    final shouldIgnoreServerMax = serverMax != null &&
+        editedLineToDim != null &&
+        serverMax <= editedLineToDim;
+    if (serverMax != null && !shouldIgnoreServerMax) {
       values.add(serverMax);
     }
 
-    final localMax = await ref.read(appDatabaseProvider).getLocalMaxToDimForHole(
+    // Guard : si le widget est deja dispose (ex : user a ferme le dialog
+    // pendant le await d'un appel precedent), ref est inutilisable →
+    // "Cannot use ref after the widget was disposed".
+    if (!mounted) {
+      return values.isEmpty ? null : (values..sort()).last;
+    }
+
+    // Utiliser draft.currentFeuilleLocalId (mis a jour par _autoSaveTimeLogs)
+    // plutot que widget.currentFeuilleLocalId (fige a la construction du widget,
+    // null pour une feuille nouvellement creee et jamais rafraichi).
+    final currentFeuilleLocalId = ref.read(reportDraftProvider).currentFeuilleLocalId
+        ?? widget.currentFeuilleLocalId;
+    final db = ref.read(appDatabaseProvider);
+    final localMax = await db.getLocalMaxToDimForHole(
           projectOdooId: widget.projectOdooId,
           holeNo: normalizedHole,
-          excludeFeuilleLocalId: widget.currentFeuilleLocalId,
+          excludeFeuilleLocalId: currentFeuilleLocalId,
         );
     if (localMax != null) {
       values.add(localMax);
@@ -539,100 +569,108 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
   }
 
   Future<String?> _pickQuickMaterialQuantity() async {
+    // Le controller n'est PAS dispose : le disposer via addPostFrameCallback
+    // apres showDialog est unsafe car l'animation de fermeture du dialog dure
+    // ~300ms et le TextField rebuild plusieurs fois pendant cette periode.
+    // Le disposer maintenant provoque "TextEditingController was used after
+    // being disposed". Le GC nettoie automatiquement en fin de fonction.
     final controller = TextEditingController(text: '1');
 
     final quantity = await showDialog<String>(
-      context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            void updateQuantity(int delta) {
-              final currentVal = int.tryParse(controller.text) ?? 0;
-              final nextVal = currentVal + delta;
-              if (nextVal < 0) {
-                return;
+        context: context,
+        builder: (context) {
+          return StatefulBuilder(
+            builder: (context, setDialogState) {
+              void updateQuantity(int delta) {
+                final currentVal = int.tryParse(controller.text) ?? 0;
+                final nextVal = currentVal + delta;
+                if (nextVal < 0) {
+                  return;
+                }
+                setDialogState(() {
+                  controller.text = nextVal.toString();
+                });
               }
-              setDialogState(() {
-                controller.text = nextVal.toString();
-              });
-            }
 
-            return AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-              title: const Text(
-                'Quantite',
-                style: TextStyle(fontWeight: FontWeight.w800),
-              ),
-              content: SizedBox(
-                width: 320,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        border: Border.all(color: const Color(0xFFE5E7EB)),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: IntrinsicHeight(
-                        child: Row(
-                          children: [
-                            Container(width: 4, color: const Color(0xFF1E3A5F)),
-                            IconButton(
-                              visualDensity: VisualDensity.compact,
-                              icon: const Icon(Icons.remove, size: 18, color: Colors.redAccent),
-                              onPressed: () => updateQuantity(-1),
-                            ),
-                            Expanded(
-                              child: TextField(
-                                controller: controller,
-                                autofocus: true,
-                                textAlign: TextAlign.center,
-                                keyboardType: TextInputType.number,
-                                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-                                decoration: const InputDecoration(
-                                  hintText: 'Quantite',
-                                  border: InputBorder.none,
-                                  isDense: true,
+              return AlertDialog(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                title: const Text(
+                  'Quantite',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+                content: SizedBox(
+                  width: 320,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          border: Border.all(color: const Color(0xFFE5E7EB)),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: IntrinsicHeight(
+                          child: Row(
+                            children: [
+                              Container(width: 4, color: const Color(0xFF1E3A5F)),
+                              IconButton(
+                                visualDensity: VisualDensity.compact,
+                                icon: const Icon(Icons.remove, size: 18, color: Colors.redAccent),
+                                onPressed: () => updateQuantity(-1),
+                              ),
+                              Expanded(
+                                child: TextField(
+                                  controller: controller,
+                                  textAlign: TextAlign.center,
+                                  keyboardType: TextInputType.number,
+                                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                                  decoration: const InputDecoration(
+                                    hintText: 'Quantite',
+                                    border: InputBorder.none,
+                                    isDense: true,
+                                  ),
                                 ),
                               ),
-                            ),
-                            IconButton(
-                              visualDensity: VisualDensity.compact,
-                              icon: const Icon(Icons.add, size: 18, color: Colors.green),
-                              onPressed: () => updateQuantity(1),
-                            ),
-                          ],
+                              IconButton(
+                                visualDensity: VisualDensity.compact,
+                                icon: const Icon(Icons.add, size: 18, color: Colors.green),
+                                onPressed: () => updateQuantity(1),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Annuler'),
-                ),
-                FilledButton(
-                  onPressed: () {
-                    final value = controller.text.trim();
-                    if (value.isEmpty || value == '0') {
-                      return;
-                    }
-                    Navigator.pop(context, value);
-                  },
-                  child: const Text('Valider'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-
-    controller.dispose();
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Annuler'),
+                  ),
+                  FilledButton(
+                    onPressed: () {
+                      final value = controller.text.trim();
+                      if (value.isEmpty || value == '0') {
+                        return;
+                      }
+                      // Retirer le focus proprement AVANT le pop, sans passer
+                      // par FocusScope.of(context) qui peut affecter des scopes
+                      // parents (activity dialog, etc.) et provoquer l'assertion
+                      // _dependents.isEmpty. primaryFocus est le focus courant
+                      // le plus local (le TextField quantite).
+                      FocusManager.instance.primaryFocus?.unfocus();
+                      Navigator.of(context, rootNavigator: true).pop(value);
+                    },
+                    child: const Text('Valider'),
+                  ),
+                ],
+              );
+            },
+          );
+        },
+      );
     return quantity;
   }
 
@@ -703,35 +741,38 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
               ),
               content: SizedBox(
                 width: 560,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    TextField(
-                      controller: controller,
-                      onChanged: applyFilter,
-                      decoration: InputDecoration(
-                        hintText: 'Rechercher par reference ou description',
-                        prefixIcon: const Icon(Icons.search),
-                        filled: true,
-                        fillColor: Colors.white,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          borderSide: BorderSide.none,
+                // SingleChildScrollView + ListView(shrinkWrap+NeverScrollable) :
+                // tout scrolle ensemble (search + liste). Aucun overflow possible
+                // meme en rotation paysage avec clavier ouvert.
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextField(
+                        controller: controller,
+                        onChanged: applyFilter,
+                        decoration: InputDecoration(
+                          hintText: 'Rechercher par reference ou description',
+                          prefixIcon: const Icon(Icons.search),
+                          filled: true,
+                          fillColor: Colors.white,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide.none,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    if (filtered.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        child: Text(emptyMessage ?? 'Aucun materiel disponible.'),
-                      )
-                    else
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(maxHeight: 360),
-                        child: ListView.separated(
+                      const SizedBox(height: 16),
+                      if (filtered.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          child: Text(emptyMessage ?? 'Aucun materiel disponible.'),
+                        )
+                      else
+                        ListView.separated(
                           shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
                           itemCount: filtered.length,
                           separatorBuilder: (context, index) =>
                               const SizedBox(height: 8),
@@ -750,13 +791,16 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                                 subtitle: Text(material.description),
                                 trailing:
                                     const Icon(Icons.add_circle_outline_rounded),
-                                onTap: () => Navigator.pop(context, material),
+                                onTap: () {
+                                  FocusManager.instance.primaryFocus?.unfocus();
+                                  Navigator.of(context, rootNavigator: true).pop(material);
+                                },
                               ),
                             );
                           },
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
               actions: [
@@ -796,6 +840,10 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
       ),
     ];
 
+    // Notifier Riverpod immediatement : setMaterielLogs met a jour un provider
+    // que le dialog d'activite ne watch pas directement (il utilise ref.read
+    // dans _hasRequiredTaggedMaterial via setModalState). Le notify est donc
+    // sans effet sur des widgets en cours de demontage.
     ref.read(reportDraftProvider.notifier).setMaterielLogs(updatedMaterielLogs);
     return true;
   }
@@ -1056,9 +1104,13 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
 
     return showModalBottomSheet<String>(
       context: context,
+      isScrollControlled: true,
       builder: (context) {
+        final mq = MediaQuery.of(context);
+        final targetHeight = (mq.size.height - mq.viewInsets.bottom) / 3;
         return Container(
-          height: MediaQuery.of(context).size.height / 3,
+          height: targetHeight.clamp(240.0, 380.0),
+          padding: EdgeInsets.only(bottom: mq.viewInsets.bottom),
           color: Colors.white,
           child: Column(
             children: [
@@ -1147,41 +1199,48 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
 
             return AlertDialog(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
               title: Text(
                 nohType == null ? 'Activites $category' : 'Activites $category - $nohType',
                 style: const TextStyle(fontWeight: FontWeight.w800),
               ),
               content: SizedBox(
                 width: 560,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    TextField(
-                      controller: controller,
-                      onChanged: applyFilter,
-                      decoration: InputDecoration(
-                        hintText: 'Rechercher une activite ou un Code',
-                        prefixIcon: const Icon(Icons.search),
-                        filled: true,
-                        fillColor: Colors.white,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          borderSide: BorderSide.none,
+                // SingleChildScrollView garantit qu'aucun contenu ne peut
+                // overflow, peu importe la rotation, le clavier ou la taille
+                // ecran. Si l'AlertDialog donne peu de hauteur, user scrolle.
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextField(
+                        controller: controller,
+                        onChanged: applyFilter,
+                        decoration: InputDecoration(
+                          hintText: 'Rechercher une activite ou un Code',
+                          prefixIcon: const Icon(Icons.search),
+                          filled: true,
+                          fillColor: Colors.white,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            borderSide: BorderSide.none,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    if (filtered.isEmpty)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 16),
-                        child: Text('Aucune activite disponible.'),
-                      )
-                    else
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(maxHeight: 360),
-                        child: ListView.separated(
+                      const SizedBox(height: 16),
+                      if (filtered.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 16),
+                          child: Text('Aucune activite disponible.'),
+                        )
+                      else
+                        // ListView shrinkWrap + NeverScrollable = les items
+                        // sont ajoutes au SingleChildScrollView parent, tout
+                        // scrolle ensemble (search + liste).
+                        ListView.separated(
                           shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
                           itemCount: filtered.length,
                           separatorBuilder: (context, index) => const SizedBox(height: 8),
                           itemBuilder: (context, index) {
@@ -1198,8 +1257,8 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                             );
                           },
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
               actions: [
@@ -1374,28 +1433,47 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
 
       final normalizedHole = log.holeNo.text.trim();
       if (normalizedHole.isEmpty) {
-        setModalState(() {
-          lastKnownToDim = null;
+        // Defer setModalState pour eviter "dirty widget in wrong build scope"
+        // si refreshKnownHoleProgress est appele pendant un rebuild
+        // (ex: fermeture du clavier apres tap dans le vide).
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          setModalState(() {
+            lastKnownToDim = null;
+          });
         });
         return;
       }
 
-      final maxToDim = await _maxToDimForHole(normalizedHole, excludeIndex: existingIndex);
+      final int? maxToDim;
+      try {
+        maxToDim = await _maxToDimForHole(normalizedHole, excludeIndex: existingIndex);
+      } catch (_) {
+        // Peut arriver si le widget est dispose pendant l'await (ref invalide).
+        return;
+      }
       if (!mounted) {
         return;
       }
 
-      setModalState(() {
-        lastKnownToDim = maxToDim;
-        final shouldAutofill = forceAutofill || (autofillIfEmpty && log.fromDe.text.trim().isEmpty);
-        if (shouldAutofill) {
-          if (maxToDim != null) {
-            log.fromDe.text = maxToDim.toString();
-          } else {
-            log.fromDe.text = '0';
+      // Defer le setModalState apres la frame en cours. La mutation de
+      // log.fromDe.text notifie les listeners du TextField synchronement,
+      // ce qui provoque "dirty widget in wrong build scope" si un rebuild
+      // (fermeture clavier, changement MediaQuery, etc.) est en cours.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setModalState(() {
+          lastKnownToDim = maxToDim;
+          final shouldAutofill = forceAutofill || (autofillIfEmpty && log.fromDe.text.trim().isEmpty);
+          if (shouldAutofill) {
+            if (maxToDim != null) {
+              log.fromDe.text = maxToDim.toString();
+            } else {
+              log.fromDe.text = '0';
+            }
+            _recomputeTotals(log);
           }
-          _recomputeTotals(log);
-        }
+        });
       });
     }
 
@@ -1592,8 +1670,11 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                                                 category == 'NOH' &&
                                                 effectiveNohType == 'DRILLING') {
                                               holeProgressInitialized = true;
-                                              Future.microtask(
-                                                () => refreshKnownHoleProgress(
+                                              // Utiliser addPostFrameCallback (pas Future.microtask)
+                                              // pour eviter que refreshKnownHoleProgress declenche un
+                                              // setModalState pendant que ce Builder est encore en build.
+                                              WidgetsBinding.instance.addPostFrameCallback(
+                                                (_) => refreshKnownHoleProgress(
                                                   setModalState,
                                                   autofillIfEmpty: true,
                                                 ),
@@ -1972,7 +2053,17 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
           ));
 
     if (shouldSave != true || !mounted) {
-      log.dispose();
+      // Le dispose doit attendre la fin de l'animation de fermeture du dialog
+      // (~300ms Material default). Si l'utilisateur ferme le dialog en tapant
+      // sur le barrier (tap "dans le vide" hors du dialog), showDialog resout
+      // immediatement mais le dialog continue son animation de sortie. Pendant
+      // cette animation, les TextField rebuildent (RawGestureDetector,
+      // AnimatedBuilder pour le curseur…) et essayent d'ajouter un listener
+      // aux controllers du log → "TextEditingController was used after being
+      // disposed" cascade vers _dependents.isEmpty + wrong build scope.
+      Future.delayed(const Duration(milliseconds: 400), () {
+        log.dispose();
+      });
       return;
     }
 
@@ -1980,7 +2071,12 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
       if (isEditing && existingIndex != null) {
         final previousLog = _timeLogs[existingIndex];
         _timeLogs[existingIndex] = log;
-        previousLog.dispose();
+        // Meme raison qu'au-dessus : le dispose doit attendre la fin de
+        // l'animation de fermeture du dialog pour ne pas laisser les TextField
+        // du dialog animer avec un controller detruit.
+        Future.delayed(const Duration(milliseconds: 400), () {
+          previousLog.dispose();
+        });
         _rechainFrom(existingIndex);
       } else {
         _timeLogs.add(log);

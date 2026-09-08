@@ -6,6 +6,7 @@ import '../services/project_hole_progress_store.dart';
 import '../services/project_drilling_type_store.dart';
 import '../services/material_tag_store.dart';
 import '../services/mobile_scope_cache_service.dart';
+import '../services/offline_auth_service.dart';
 import '../services/tablet_company_lock_service.dart';
 
 final appDatabaseProvider = Provider<AppDatabase>((ref) {
@@ -36,4 +37,8 @@ final projectDrillingTypeStoreProvider = Provider<ProjectDrillingTypeStore>((ref
 
 final materialTagStoreProvider = Provider<MaterialTagStore>((ref) {
   return MaterialTagStore();
+});
+
+final offlineAuthServiceProvider = Provider<OfflineAuthService>((ref) {
+  return OfflineAuthService();
 });

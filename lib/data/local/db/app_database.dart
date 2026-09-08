@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
 import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 
 part 'app_database.g.dart';
 
@@ -53,6 +54,7 @@ class Locations extends Table {
   IntColumn get localId => integer().autoIncrement()();
   IntColumn get odooId => integer().unique()();
   TextColumn get name => text()();
+  IntColumn get projectOdooId => integer().nullable()();
   TextColumn get updatedAt => text().nullable()();
 }
 
@@ -187,21 +189,10 @@ class FeuilleMateriels extends Table {
   TextColumn get updatedAt => text()();
 }
 
-// LazyDatabase _openConnection() {
-//   return LazyDatabase(() async {
-//     final dir = await getApplicationDocumentsDirectory();
-//     final file = File(p.join(dir.path, 'forages_mobile.sqlite'));
-//     return NativeDatabase(file);
-//   });
-// }
 LazyDatabase _openConnection() {
   return LazyDatabase(() async {
-    final dbFolder = Directory(
-      r'C:\Users\Parfait-SEDOGO\DevOps\forages_mobile_data',
-    );
-    await dbFolder.create(recursive: true);
-
-    final file = File(p.join(dbFolder.path, 'forages_mobile.sqlite'));
+    final dir = await getApplicationDocumentsDirectory();
+    final file = File(p.join(dir.path, 'forages_mobile.sqlite'));
     return NativeDatabase.createInBackground(file);
   });
 }
@@ -225,11 +216,16 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (Migrator m) async => m.createAll(),
-    onUpgrade: (Migrator m, int from, int to) async => m.createAll(),
+    onUpgrade: (Migrator m, int from, int to) async {
+      await m.createAll();
+      if (from < 10) {
+        await m.addColumn(locations, locations.projectOdooId);
+      }
+    },
   );
 
   Future<void> clearReferenceData() async {
@@ -355,6 +351,7 @@ class AppDatabase extends _$AppDatabase {
           return LocationsCompanion.insert(
             odooId: (item['odoo_id'] as num).toInt(),
             name: item['name']?.toString() ?? '',
+            projectOdooId: Value((item['project_odoo_id'] as num?)?.toInt()),
             updatedAt: Value(item['updated_at']?.toString()),
           );
         }).toList(),

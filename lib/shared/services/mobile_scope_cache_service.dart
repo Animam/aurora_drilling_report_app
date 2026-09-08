@@ -2,10 +2,10 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 
 class MobileScopeCacheService {
   static const _fileName = 'mobile_scope_cache.json';
-  static const _localDataFolder = r'C:\Users\Parfait-SEDOGO\DevOps\forages_mobile_data';
 
   Future<Map<String, dynamic>?> readScope() async {
     final file = await _getFile();
@@ -49,8 +49,7 @@ class MobileScopeCacheService {
   }
 
   Future<File> _getFile() async {
-    final dir = Directory(_localDataFolder);
-    await dir.create(recursive: true);
+    final dir = await getApplicationDocumentsDirectory();
     return File(p.join(dir.path, _fileName));
   }
 }
