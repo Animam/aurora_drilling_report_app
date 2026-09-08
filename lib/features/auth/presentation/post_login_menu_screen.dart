@@ -36,6 +36,40 @@ class _PostLoginMenuScreenState extends ConsumerState<PostLoginMenuScreen> {
     );
   }
 
+  Future<void> _confirmLogout(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text(
+            'Deconnexion',
+            style: TextStyle(fontWeight: FontWeight.w800),
+          ),
+          content: const Text(
+            'Voulez-vous vraiment vous deconnecter ?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Annuler'),
+            ),
+            FilledButton.icon(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              icon: const Icon(Icons.logout_rounded, size: 18),
+              label: const Text('Se deconnecter'),
+              style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed == true && context.mounted) {
+      await _logout(context, ref);
+    }
+  }
+
   Future<void> _logout(BuildContext context, WidgetRef ref) async {
     try {
       await ref.read(authApiProvider).logout();
@@ -91,7 +125,7 @@ class _PostLoginMenuScreenState extends ConsumerState<PostLoginMenuScreen> {
         actions: [
           IconButton(
             tooltip: 'Se deconnecter',
-            onPressed: () => _logout(context, ref),
+            onPressed: () => _confirmLogout(context, ref),
             icon: const Icon(Icons.logout_rounded),
           ),
         ],

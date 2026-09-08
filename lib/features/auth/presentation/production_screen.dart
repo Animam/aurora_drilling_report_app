@@ -733,82 +733,103 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
               });
             }
 
-            return AlertDialog(
+            // Meme structure que le dialog Activites : header fixe + liste
+            // virtualisee (ListView.builder) + footer fixe. Evite l'overflow
+            // interne d'AlertDialog en rotation + clavier ET le freeze quand
+            // la liste contient beaucoup d'items.
+            final mq = MediaQuery.of(context);
+            final keyboardOpen = mq.viewInsets.bottom > 0;
+            final availableHeight = mq.size.height - mq.viewInsets.bottom - (keyboardOpen ? 16 : 48);
+            final dialogHeight = availableHeight.clamp(240.0, 640.0);
+
+            return Dialog(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-              title: Text(
-                dialogTitle ?? 'Ajouter un materiel',
-                style: const TextStyle(fontWeight: FontWeight.w800),
+              insetPadding: EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: keyboardOpen ? 8 : 24,
               ),
-              content: SizedBox(
-                width: 560,
-                // SingleChildScrollView + ListView(shrinkWrap+NeverScrollable) :
-                // tout scrolle ensemble (search + liste). Aucun overflow possible
-                // meme en rotation paysage avec clavier ouvert.
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      TextField(
-                        controller: controller,
-                        onChanged: applyFilter,
-                        decoration: InputDecoration(
-                          hintText: 'Rechercher par reference ou description',
-                          prefixIcon: const Icon(Icons.search),
-                          filled: true,
-                          fillColor: Colors.white,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide.none,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: 560, maxHeight: dialogHeight),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(
+                            dialogTitle ?? 'Ajouter un materiel',
+                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
                           ),
+                          const SizedBox(height: 16),
+                          TextField(
+                            controller: controller,
+                            onChanged: applyFilter,
+                            decoration: InputDecoration(
+                              hintText: 'Rechercher par reference ou description',
+                              prefixIcon: const Icon(Icons.search),
+                              filled: true,
+                              fillColor: Colors.white,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: BorderSide.none,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Flexible(
+                      child: filtered.isEmpty
+                          ? Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 32),
+                              child: Center(
+                                child: Text(emptyMessage ?? 'Aucun materiel disponible.'),
+                              ),
+                            )
+                          : ListView.separated(
+                              padding: const EdgeInsets.symmetric(horizontal: 20),
+                              itemCount: filtered.length,
+                              separatorBuilder: (context, index) => const SizedBox(height: 8),
+                              itemBuilder: (context, index) {
+                                final material = filtered[index];
+                                return Material(
+                                  color: const Color(0xFFF8FAFC),
+                                  borderRadius: BorderRadius.circular(16),
+                                  child: ListTile(
+                                    title: Text(
+                                      material.reference?.isNotEmpty == true
+                                          ? material.reference!
+                                          : '--',
+                                      style: const TextStyle(fontWeight: FontWeight.w800),
+                                    ),
+                                    subtitle: Text(material.description),
+                                    trailing:
+                                        const Icon(Icons.add_circle_outline_rounded),
+                                    onTap: () {
+                                      FocusManager.instance.primaryFocus?.unfocus();
+                                      Navigator.of(context, rootNavigator: true).pop(material);
+                                    },
+                                  ),
+                                );
+                              },
+                            ),
+                    ),
+                    Padding(
+                      padding: EdgeInsets.fromLTRB(20, 8, 20, 12 + mq.viewInsets.bottom.clamp(0.0, 32.0)),
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('Fermer'),
                         ),
                       ),
-                      const SizedBox(height: 16),
-                      if (filtered.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          child: Text(emptyMessage ?? 'Aucun materiel disponible.'),
-                        )
-                      else
-                        ListView.separated(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: filtered.length,
-                          separatorBuilder: (context, index) =>
-                              const SizedBox(height: 8),
-                          itemBuilder: (context, index) {
-                            final material = filtered[index];
-                            return Material(
-                              color: const Color(0xFFF8FAFC),
-                              borderRadius: BorderRadius.circular(16),
-                              child: ListTile(
-                                title: Text(
-                                  material.reference?.isNotEmpty == true
-                                      ? material.reference!
-                                      : '--',
-                                  style: const TextStyle(fontWeight: FontWeight.w800),
-                                ),
-                                subtitle: Text(material.description),
-                                trailing:
-                                    const Icon(Icons.add_circle_outline_rounded),
-                                onTap: () {
-                                  FocusManager.instance.primaryFocus?.unfocus();
-                                  Navigator.of(context, rootNavigator: true).pop(material);
-                                },
-                              ),
-                            );
-                          },
-                        ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Fermer'),
-                ),
-              ],
             );
           },
         );
@@ -1197,76 +1218,92 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
               });
             }
 
-            return AlertDialog(
+            // Dialog custom : header fixe + ListView.builder virtualise +
+            // footer fixe. Resiste rotation, clavier, et grandes listes.
+            final mq = MediaQuery.of(context);
+            final keyboardOpen = mq.viewInsets.bottom > 0;
+            final availableHeight = mq.size.height - mq.viewInsets.bottom - (keyboardOpen ? 16 : 48);
+            final dialogHeight = availableHeight.clamp(240.0, 640.0);
+
+            return Dialog(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-              insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-              title: Text(
-                nohType == null ? 'Activites $category' : 'Activites $category - $nohType',
-                style: const TextStyle(fontWeight: FontWeight.w800),
+              insetPadding: EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: keyboardOpen ? 8 : 24,
               ),
-              content: SizedBox(
-                width: 560,
-                // SingleChildScrollView garantit qu'aucun contenu ne peut
-                // overflow, peu importe la rotation, le clavier ou la taille
-                // ecran. Si l'AlertDialog donne peu de hauteur, user scrolle.
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      TextField(
-                        controller: controller,
-                        onChanged: applyFilter,
-                        decoration: InputDecoration(
-                          hintText: 'Rechercher une activite ou un Code',
-                          prefixIcon: const Icon(Icons.search),
-                          filled: true,
-                          fillColor: Colors.white,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(16),
-                            borderSide: BorderSide.none,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: 560, maxHeight: dialogHeight),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(
+                            nohType == null
+                                ? 'Activites $category'
+                                : 'Activites $category - $nohType',
+                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
                           ),
+                          const SizedBox(height: 16),
+                          TextField(
+                            controller: controller,
+                            onChanged: applyFilter,
+                            decoration: InputDecoration(
+                              hintText: 'Rechercher une activite ou un Code',
+                              prefixIcon: const Icon(Icons.search),
+                              filled: true,
+                              fillColor: Colors.white,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: BorderSide.none,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Flexible(
+                      child: filtered.isEmpty
+                          ? const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 32),
+                              child: Center(child: Text('Aucune activite disponible.')),
+                            )
+                          : ListView.separated(
+                              padding: const EdgeInsets.symmetric(horizontal: 20),
+                              itemCount: filtered.length,
+                              separatorBuilder: (context, index) => const SizedBox(height: 8),
+                              itemBuilder: (context, index) {
+                                final task = filtered[index];
+                                return Material(
+                                  color: const Color(0xFFF8FAFC),
+                                  borderRadius: BorderRadius.circular(16),
+                                  child: ListTile(
+                                    title: Text(task.libelle, style: const TextStyle(fontWeight: FontWeight.w700)),
+                                    subtitle: Text(task.numItem?.isNotEmpty == true ? 'Code ${task.numItem}' : 'Sans Code'),
+                                    trailing: const Icon(Icons.chevron_right_rounded),
+                                    onTap: () => Navigator.pop(context, task),
+                                  ),
+                                );
+                              },
+                            ),
+                    ),
+                    Padding(
+                      padding: EdgeInsets.fromLTRB(20, 8, 20, 12 + mq.viewInsets.bottom.clamp(0.0, 32.0)),
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('Fermer'),
                         ),
                       ),
-                      const SizedBox(height: 16),
-                      if (filtered.isEmpty)
-                        const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 16),
-                          child: Text('Aucune activite disponible.'),
-                        )
-                      else
-                        // ListView shrinkWrap + NeverScrollable = les items
-                        // sont ajoutes au SingleChildScrollView parent, tout
-                        // scrolle ensemble (search + liste).
-                        ListView.separated(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: filtered.length,
-                          separatorBuilder: (context, index) => const SizedBox(height: 8),
-                          itemBuilder: (context, index) {
-                            final task = filtered[index];
-                            return Material(
-                              color: const Color(0xFFF8FAFC),
-                              borderRadius: BorderRadius.circular(16),
-                              child: ListTile(
-                                title: Text(task.libelle, style: const TextStyle(fontWeight: FontWeight.w700)),
-                                subtitle: Text(task.numItem?.isNotEmpty == true ? 'Code ${task.numItem}' : 'Sans Code'),
-                                trailing: const Icon(Icons.chevron_right_rounded),
-                                onTap: () => Navigator.pop(context, task),
-                              ),
-                            );
-                          },
-                        ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Fermer'),
-                ),
-              ],
             );
           },
         );

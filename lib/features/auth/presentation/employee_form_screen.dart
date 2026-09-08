@@ -390,75 +390,91 @@ class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
               });
             }
 
+            // Dialog custom : header fixe (titre + search) + ListView.builder
+            // virtualise (evite le freeze si beaucoup d'employes) + footer fixe.
+            // Resiste a la rotation, au clavier et aux grandes listes.
             final mq = MediaQuery.of(context);
-            final rawListMaxHeight = mq.size.height - mq.viewInsets.bottom - 320;
-            final listMaxHeight = rawListMaxHeight.clamp(120.0, 320.0);
+            final keyboardOpen = mq.viewInsets.bottom > 0;
+            final availableHeight = mq.size.height - mq.viewInsets.bottom - (keyboardOpen ? 16 : 48);
+            final dialogHeight = availableHeight.clamp(240.0, 640.0);
 
-            return AlertDialog(
+            return Dialog(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-              title: Text(
-                roleLabel == null ? 'Ajouter un employe' : 'Ajouter un employe - $roleLabel',
-                style: const TextStyle(fontWeight: FontWeight.w800),
+              insetPadding: EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: keyboardOpen ? 8 : 24,
               ),
-              content: SizedBox(
-                width: 520,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: 520, maxHeight: dialogHeight),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    TextField(
-                      controller: controller,
-                      onChanged: applyFilter,
-                      decoration: InputDecoration(
-                        hintText: 'Rechercher un employe',
-                        prefixIcon: const Icon(Icons.search),
-                        filled: true,
-                        fillColor: Colors.white,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          borderSide: BorderSide.none,
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(
+                            roleLabel == null ? 'Ajouter un employe' : 'Ajouter un employe - $roleLabel',
+                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+                          ),
+                          const SizedBox(height: 16),
+                          TextField(
+                            controller: controller,
+                            onChanged: applyFilter,
+                            decoration: InputDecoration(
+                              hintText: 'Rechercher un employe',
+                              prefixIcon: const Icon(Icons.search),
+                              filled: true,
+                              fillColor: Colors.white,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: BorderSide.none,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Flexible(
+                      child: filtered.isEmpty
+                          ? const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 32),
+                              child: Center(child: Text('Aucun employe disponible.')),
+                            )
+                          : ListView.separated(
+                              padding: const EdgeInsets.symmetric(horizontal: 20),
+                              itemCount: filtered.length,
+                              separatorBuilder: (context, index) => const SizedBox(height: 8),
+                              itemBuilder: (context, index) {
+                                final employee = filtered[index];
+                                return Material(
+                                  color: const Color(0xFFF8FAFC),
+                                  borderRadius: BorderRadius.circular(16),
+                                  child: ListTile(
+                                    title: Text(employee.name, style: const TextStyle(fontWeight: FontWeight.w700)),
+                                    subtitle: Text(employee.jobName ?? 'Fonction non renseignee'),
+                                    trailing: const Icon(Icons.add_circle_outline_rounded),
+                                    onTap: () => Navigator.pop(context, employee),
+                                  ),
+                                );
+                              },
+                            ),
+                    ),
+                    Padding(
+                      padding: EdgeInsets.fromLTRB(20, 8, 20, 12 + mq.viewInsets.bottom.clamp(0.0, 32.0)),
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('Fermer'),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    if (filtered.isEmpty)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 16),
-                        child: Text('Aucun employe disponible.'),
-                      )
-                    else
-                      Flexible(
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(maxHeight: listMaxHeight),
-                          child: ListView.separated(
-                            shrinkWrap: true,
-                            itemCount: filtered.length,
-                            separatorBuilder: (context, index) => const SizedBox(height: 8),
-                            itemBuilder: (context, index) {
-                              final employee = filtered[index];
-                              return Material(
-                                color: const Color(0xFFF8FAFC),
-                                borderRadius: BorderRadius.circular(16),
-                                child: ListTile(
-                                  title: Text(employee.name, style: const TextStyle(fontWeight: FontWeight.w700)),
-                                  subtitle: Text(employee.jobName ?? 'Fonction non renseignee'),
-                                  trailing: const Icon(Icons.add_circle_outline_rounded),
-                                  onTap: () => Navigator.pop(context, employee),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ),
                   ],
                 ),
               ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Fermer'),
-                ),
-              ],
             );
           },
         );

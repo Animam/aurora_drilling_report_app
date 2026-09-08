@@ -685,7 +685,7 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
 
     try {
       if (!_isQuarterDurationComplete) {
-        await _showErrorDialog('Duree de quart imcomplete');
+        await _showErrorDialog('Duree de poste incomplete');
         return;
       }
 
@@ -846,7 +846,7 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
 
     try {
       if (!_isQuarterDurationComplete) {
-        await _showErrorDialog('Duree de quart imcomplete');
+        await _showErrorDialog('Duree de poste incomplete');
         return;
       }
 

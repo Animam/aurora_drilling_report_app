@@ -463,75 +463,90 @@ class _DrillingFuelFormState extends ConsumerState<DrillingFuelForm> {
               });
             }
 
+            // Dialog custom : header fixe + ListView.builder virtualise +
+            // footer fixe. Resiste rotation, clavier, grandes listes.
             final mq = MediaQuery.of(context);
-            final rawListMaxHeight = mq.size.height - mq.viewInsets.bottom - 320;
-            final listMaxHeight = rawListMaxHeight.clamp(120.0, 360.0);
+            final keyboardOpen = mq.viewInsets.bottom > 0;
+            final availableHeight = mq.size.height - mq.viewInsets.bottom - (keyboardOpen ? 16 : 48);
+            final dialogHeight = availableHeight.clamp(240.0, 640.0);
 
-            return AlertDialog(
+            return Dialog(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-              title: const Text(
-                'Ajouter un equipement',
-                style: TextStyle(fontWeight: FontWeight.w800),
+              insetPadding: EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: keyboardOpen ? 8 : 24,
               ),
-              content: SizedBox(
-                width: 560,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: 560, maxHeight: dialogHeight),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    TextField(
-                      controller: controller,
-                      onChanged: applyFilter,
-                      decoration: InputDecoration(
-                        hintText: 'Rechercher un equipement',
-                        prefixIcon: const Icon(Icons.search),
-                        filled: true,
-                        fillColor: Colors.white,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          borderSide: BorderSide.none,
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const Text(
+                            'Ajouter un equipement',
+                            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+                          ),
+                          const SizedBox(height: 16),
+                          TextField(
+                            controller: controller,
+                            onChanged: applyFilter,
+                            decoration: InputDecoration(
+                              hintText: 'Rechercher un equipement',
+                              prefixIcon: const Icon(Icons.search),
+                              filled: true,
+                              fillColor: Colors.white,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                borderSide: BorderSide.none,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Flexible(
+                      child: filtered.isEmpty
+                          ? const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 32),
+                              child: Center(child: Text('Aucun equipement disponible.')),
+                            )
+                          : ListView.separated(
+                              padding: const EdgeInsets.symmetric(horizontal: 20),
+                              itemCount: filtered.length,
+                              separatorBuilder: (context, index) => const SizedBox(height: 8),
+                              itemBuilder: (context, index) {
+                                final equipment = filtered[index];
+                                return Material(
+                                  color: const Color(0xFFF8FAFC),
+                                  borderRadius: BorderRadius.circular(16),
+                                  child: ListTile(
+                                    title: Text(equipment.name, style: const TextStyle(fontWeight: FontWeight.w800)),
+                                    subtitle: Text(equipment.categoryName?.isNotEmpty == true ? equipment.categoryName! : '--'),
+                                    trailing: const Icon(Icons.add_circle_outline_rounded),
+                                    onTap: () => Navigator.pop(context, equipment),
+                                  ),
+                                );
+                              },
+                            ),
+                    ),
+                    Padding(
+                      padding: EdgeInsets.fromLTRB(20, 8, 20, 12 + mq.viewInsets.bottom.clamp(0.0, 32.0)),
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('Fermer'),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    if (filtered.isEmpty)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 16),
-                        child: Text('Aucun equipement disponible.'),
-                      )
-                    else
-                      Flexible(
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(maxHeight: listMaxHeight),
-                          child: ListView.separated(
-                            shrinkWrap: true,
-                            itemCount: filtered.length,
-                            separatorBuilder: (context, index) => const SizedBox(height: 8),
-                            itemBuilder: (context, index) {
-                              final equipment = filtered[index];
-                              return Material(
-                                color: const Color(0xFFF8FAFC),
-                                borderRadius: BorderRadius.circular(16),
-                                child: ListTile(
-                                  title: Text(equipment.name, style: const TextStyle(fontWeight: FontWeight.w800)),
-                                  subtitle: Text(equipment.categoryName?.isNotEmpty == true ? equipment.categoryName! : '--'),
-                                  trailing: const Icon(Icons.add_circle_outline_rounded),
-                                  onTap: () => Navigator.pop(context, equipment),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ),
                   ],
                 ),
               ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Fermer'),
-                ),
-              ],
             );
           },
         );
