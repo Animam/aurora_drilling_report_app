@@ -22,7 +22,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   static const _textDark = Color(0xFF18243E);
   static const _muted = Color(0xFF69758C);
 
-  final _dbController = TextEditingController(text: 'aurora_db');
+  final _dbController = TextEditingController(text: 'TRAINING');
   final _loginController = TextEditingController();
   final _passwordController = TextEditingController();
 
@@ -278,7 +278,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               borderRadius: BorderRadius.circular(22),
                             ),
                             child: Image.asset(
-                              'assets/images/aurora logo.png',
+                              'assets/images/aurora_logo.png',
                               fit: BoxFit.contain,
                             ),
                           ),

@@ -1,4 +1,6 @@
-﻿import 'package:aurora_drilling_report/data/local/db/app_database.dart';
+﻿import 'dart:math' as math;
+
+import 'package:aurora_drilling_report/data/local/db/app_database.dart';
 import 'package:aurora_drilling_report/shared/providers/app_providers.dart';
 import 'package:aurora_drilling_report/shared/providers/report_draft_provider.dart';
 import 'package:flutter/material.dart';
@@ -236,17 +238,13 @@ class _DrillingConsumableFormState extends ConsumerState<DrillingConsumableForm>
               });
             }
 
-            // Dialog custom avec hauteur explicite + Expanded/ListView.builder :
-            // - Header (titre + search) fixe en haut
-            // - ListView virtualise au milieu (n'affiche que ce qui est visible,
-            //   supporte des centaines d'items sans freeze)
-            // - Footer (bouton Fermer) fixe en bas
-            // Structure resistante a la rotation, au clavier, et aux grandes
-            // listes.
+            // Dialog bulletproof : SingleChildScrollView englobe TOUT.
+            // La liste a une hauteur bornee (max 300, virtualisee) → jamais
+            // de freeze meme avec 1000+ items. Si la hauteur totale (titre +
+            // recherche + liste + bouton) depasse l'espace du dialog (rotation
+            // paysage + clavier), le tout devient scrollable → AUCUN overflow.
             final mq = MediaQuery.of(context);
             final keyboardOpen = mq.viewInsets.bottom > 0;
-            final availableHeight = mq.size.height - mq.viewInsets.bottom - (keyboardOpen ? 16 : 48);
-            final dialogHeight = availableHeight.clamp(240.0, 640.0);
 
             return Dialog(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
@@ -255,50 +253,45 @@ class _DrillingConsumableFormState extends ConsumerState<DrillingConsumableForm>
                 vertical: keyboardOpen ? 8 : 24,
               ),
               child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: 560, maxHeight: dialogHeight),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Header fixe (titre + recherche)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          const Text(
-                            'Ajouter un materiel',
-                            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
-                          ),
-                          const SizedBox(height: 16),
-                          TextField(
-                            controller: controller,
-                            onChanged: applyFilter,
-                            decoration: InputDecoration(
-                              hintText: 'Rechercher par reference ou description',
-                              prefixIcon: const Icon(Icons.search),
-                              filled: true,
-                              fillColor: Colors.white,
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(16),
-                                borderSide: BorderSide.none,
-                              ),
+                constraints: const BoxConstraints(maxWidth: 560),
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.only(bottom: mq.viewInsets.bottom.clamp(0.0, 32.0)),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Text(
+                          'Ajouter un materiel',
+                          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: controller,
+                          onChanged: applyFilter,
+                          decoration: InputDecoration(
+                            hintText: 'Rechercher',
+                            prefixIcon: const Icon(Icons.search),
+                            isDense: true,
+                            filled: true,
+                            fillColor: Colors.white,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide.none,
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                    // Liste virtualisee : prend l'espace restant, scrolle
-                    // independamment. ListView.builder n'instancie que les
-                    // items visibles a l'ecran.
-                    Flexible(
-                      child: filtered.isEmpty
-                          ? const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 32),
-                              child: Center(child: Text('Aucun materiel disponible.')),
-                            )
-                          : ListView.separated(
-                              padding: const EdgeInsets.symmetric(horizontal: 20),
+                        ),
+                        const SizedBox(height: 12),
+                        if (filtered.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                            child: Center(child: Text('Aucun materiel disponible.')),
+                          )
+                        else
+                          SizedBox(
+                            height: math.min(filtered.length * 72.0, 300.0),
+                            child: ListView.separated(
                               itemCount: filtered.length,
                               separatorBuilder: (context, index) => const SizedBox(height: 8),
                               itemBuilder: (context, index) {
@@ -307,6 +300,7 @@ class _DrillingConsumableFormState extends ConsumerState<DrillingConsumableForm>
                                   color: const Color(0xFFF8FAFC),
                                   borderRadius: BorderRadius.circular(16),
                                   child: ListTile(
+                                    dense: true,
                                     title: Text(
                                       material.reference?.isNotEmpty == true ? material.reference! : '--',
                                       style: const TextStyle(fontWeight: FontWeight.w800),
@@ -318,19 +312,18 @@ class _DrillingConsumableFormState extends ConsumerState<DrillingConsumableForm>
                                 );
                               },
                             ),
-                    ),
-                    // Footer fixe (bouton Fermer) + padding clavier
-                    Padding(
-                      padding: EdgeInsets.fromLTRB(20, 8, 20, 12 + mq.viewInsets.bottom.clamp(0.0, 32.0)),
-                      child: Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: const Text('Fermer'),
+                          ),
+                        const SizedBox(height: 4),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('Fermer'),
+                          ),
                         ),
-                      ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             );

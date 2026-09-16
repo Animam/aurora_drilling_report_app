@@ -1,4 +1,6 @@
-﻿import 'package:aurora_drilling_report/data/local/db/app_database.dart';
+﻿import 'dart:math' as math;
+
+import 'package:aurora_drilling_report/data/local/db/app_database.dart';
 import 'package:aurora_drilling_report/shared/providers/app_providers.dart';
 import 'package:aurora_drilling_report/shared/providers/report_draft_provider.dart';
 import 'package:flutter/cupertino.dart';
@@ -463,12 +465,12 @@ class _DrillingFuelFormState extends ConsumerState<DrillingFuelForm> {
               });
             }
 
-            // Dialog custom : header fixe + ListView.builder virtualise +
-            // footer fixe. Resiste rotation, clavier, grandes listes.
+            // Dialog bulletproof responsive : SingleChildScrollView englobe
+            // TOUT. La liste a une hauteur bornee et virtualisee → jamais
+            // de freeze meme avec beaucoup d'equipements. En rotation paysage
+            // + clavier ouvert, le tout devient scrollable → aucun overflow.
             final mq = MediaQuery.of(context);
             final keyboardOpen = mq.viewInsets.bottom > 0;
-            final availableHeight = mq.size.height - mq.viewInsets.bottom - (keyboardOpen ? 16 : 48);
-            final dialogHeight = availableHeight.clamp(240.0, 640.0);
 
             return Dialog(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
@@ -477,46 +479,45 @@ class _DrillingFuelFormState extends ConsumerState<DrillingFuelForm> {
                 vertical: keyboardOpen ? 8 : 24,
               ),
               child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: 560, maxHeight: dialogHeight),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          const Text(
-                            'Ajouter un equipement',
-                            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
-                          ),
-                          const SizedBox(height: 16),
-                          TextField(
-                            controller: controller,
-                            onChanged: applyFilter,
-                            decoration: InputDecoration(
-                              hintText: 'Rechercher un equipement',
-                              prefixIcon: const Icon(Icons.search),
-                              filled: true,
-                              fillColor: Colors.white,
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(16),
-                                borderSide: BorderSide.none,
-                              ),
+                constraints: const BoxConstraints(maxWidth: 560),
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.only(bottom: mq.viewInsets.bottom.clamp(0.0, 32.0)),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Text(
+                          'Ajouter un equipement',
+                          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: controller,
+                          onChanged: applyFilter,
+                          decoration: InputDecoration(
+                            hintText: 'Rechercher',
+                            prefixIcon: const Icon(Icons.search),
+                            isDense: true,
+                            filled: true,
+                            fillColor: Colors.white,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide.none,
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                    Flexible(
-                      child: filtered.isEmpty
-                          ? const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 32),
-                              child: Center(child: Text('Aucun equipement disponible.')),
-                            )
-                          : ListView.separated(
-                              padding: const EdgeInsets.symmetric(horizontal: 20),
+                        ),
+                        const SizedBox(height: 12),
+                        if (filtered.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                            child: Center(child: Text('Aucun equipement disponible.')),
+                          )
+                        else
+                          SizedBox(
+                            height: math.min(filtered.length * 72.0, 300.0),
+                            child: ListView.separated(
                               itemCount: filtered.length,
                               separatorBuilder: (context, index) => const SizedBox(height: 8),
                               itemBuilder: (context, index) {
@@ -525,6 +526,7 @@ class _DrillingFuelFormState extends ConsumerState<DrillingFuelForm> {
                                   color: const Color(0xFFF8FAFC),
                                   borderRadius: BorderRadius.circular(16),
                                   child: ListTile(
+                                    dense: true,
                                     title: Text(equipment.name, style: const TextStyle(fontWeight: FontWeight.w800)),
                                     subtitle: Text(equipment.categoryName?.isNotEmpty == true ? equipment.categoryName! : '--'),
                                     trailing: const Icon(Icons.add_circle_outline_rounded),
@@ -533,18 +535,18 @@ class _DrillingFuelFormState extends ConsumerState<DrillingFuelForm> {
                                 );
                               },
                             ),
-                    ),
-                    Padding(
-                      padding: EdgeInsets.fromLTRB(20, 8, 20, 12 + mq.viewInsets.bottom.clamp(0.0, 32.0)),
-                      child: Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: const Text('Fermer'),
+                          ),
+                        const SizedBox(height: 4),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('Fermer'),
+                          ),
                         ),
-                      ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             );

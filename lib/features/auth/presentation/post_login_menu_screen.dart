@@ -2,6 +2,7 @@ import 'package:aurora_drilling_report/features/auth/presentation/feuille_list_s
 import 'package:aurora_drilling_report/features/auth/presentation/login_screen.dart';
 import 'package:aurora_drilling_report/features/auth/presentation/registration_screen.dart';
 import 'package:aurora_drilling_report/shared/providers/api_providers.dart';
+import 'package:aurora_drilling_report/shared/providers/app_providers.dart';
 import 'package:aurora_drilling_report/shared/providers/report_draft_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -22,6 +23,74 @@ class PostLoginMenuScreen extends ConsumerStatefulWidget {
 
 class _PostLoginMenuScreenState extends ConsumerState<PostLoginMenuScreen> {
   bool _initialMessageShown = false;
+  String? _employeeName;
+  String? _companyName;
+
+  Future<void> _loadUserInfo() async {
+    final scope = await ref.read(mobileScopeCacheProvider).readScope();
+    if (!mounted || scope == null) {
+      return;
+    }
+    setState(() {
+      _employeeName = scope['employee_name']?.toString();
+      _companyName = scope['company_name']?.toString();
+    });
+  }
+
+  void _showUserInfo(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Row(
+            children: [
+              CircleAvatar(
+                backgroundColor: Color(0xFF13233F),
+                child: Icon(Icons.person_rounded, color: Colors.white),
+              ),
+              SizedBox(width: 12),
+              Text(
+                'Profil',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _employeeName?.isNotEmpty == true ? _employeeName! : 'Utilisateur',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+              ),
+              if (_companyName?.isNotEmpty == true) ...[
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    const Icon(Icons.business_rounded, size: 16, color: Color(0xFF69758C)),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        _companyName!,
+                        style: const TextStyle(color: Color(0xFF69758C), fontWeight: FontWeight.w500),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   void _openCreateSheet(BuildContext context, WidgetRef ref) {
     ref.read(reportDraftProvider.notifier).reset();
@@ -92,6 +161,7 @@ class _PostLoginMenuScreenState extends ConsumerState<PostLoginMenuScreen> {
   void initState() {
     super.initState();
     Future.microtask(_showInitialMessageIfNeeded);
+    Future.microtask(_loadUserInfo);
   }
 
   void _showInitialMessageIfNeeded() {
@@ -123,6 +193,40 @@ class _PostLoginMenuScreenState extends ConsumerState<PostLoginMenuScreen> {
       appBar: AppBar(
         // title: const Text('Accueil'),
         actions: [
+          // Chip profil : avatar + nom + prenom. Cliquable pour voir plus de details.
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: () => _showUserInfo(context),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const CircleAvatar(
+                      radius: 16,
+                      backgroundColor: Color(0xFF13233F),
+                      child: Icon(Icons.person_rounded, size: 18, color: Colors.white),
+                    ),
+                    const SizedBox(width: 8),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 180),
+                      child: Text(
+                        _employeeName?.isNotEmpty == true ? _employeeName! : 'Utilisateur',
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                          color: Color(0xFF18243E),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
           IconButton(
             tooltip: 'Se deconnecter',
             onPressed: () => _confirmLogout(context, ref),

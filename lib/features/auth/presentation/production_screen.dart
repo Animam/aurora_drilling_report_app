@@ -1,4 +1,6 @@
-﻿import 'package:aurora_drilling_report/data/local/db/app_database.dart';
+﻿import 'dart:math' as math;
+
+import 'package:aurora_drilling_report/data/local/db/app_database.dart';
 import 'package:aurora_drilling_report/features/auth/presentation/employee_form_screen.dart';
 import 'package:aurora_drilling_report/features/auth/presentation/fuel_form_screen.dart';
 import 'package:aurora_drilling_report/features/auth/presentation/materiel_form_screen.dart';
@@ -733,14 +735,13 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
               });
             }
 
-            // Meme structure que le dialog Activites : header fixe + liste
-            // virtualisee (ListView.builder) + footer fixe. Evite l'overflow
-            // interne d'AlertDialog en rotation + clavier ET le freeze quand
-            // la liste contient beaucoup d'items.
+            // Approche bulletproof : SingleChildScrollView englobe TOUT.
+            // La liste a une hauteur BORNEE (max 300px, virtualisee) donc jamais
+            // de freeze meme avec 1000 items. Si la hauteur totale (titre +
+            // recherche + liste + bouton) depasse l'espace du dialog, le tout
+            // devient scrollable → AUCUN overflow possible.
             final mq = MediaQuery.of(context);
             final keyboardOpen = mq.viewInsets.bottom > 0;
-            final availableHeight = mq.size.height - mq.viewInsets.bottom - (keyboardOpen ? 16 : 48);
-            final dialogHeight = availableHeight.clamp(240.0, 640.0);
 
             return Dialog(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
@@ -749,48 +750,51 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                 vertical: keyboardOpen ? 8 : 24,
               ),
               child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: 560, maxHeight: dialogHeight),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Text(
-                            dialogTitle ?? 'Ajouter un materiel',
-                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
-                          ),
-                          const SizedBox(height: 16),
-                          TextField(
-                            controller: controller,
-                            onChanged: applyFilter,
-                            decoration: InputDecoration(
-                              hintText: 'Rechercher par reference ou description',
-                              prefixIcon: const Icon(Icons.search),
-                              filled: true,
-                              fillColor: Colors.white,
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(16),
-                                borderSide: BorderSide.none,
-                              ),
+                constraints: const BoxConstraints(maxWidth: 560),
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.only(bottom: mq.viewInsets.bottom.clamp(0.0, 32.0)),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          dialogTitle ?? 'Ajouter un materiel',
+                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: controller,
+                          onChanged: applyFilter,
+                          decoration: InputDecoration(
+                            hintText: 'Rechercher',
+                            prefixIcon: const Icon(Icons.search),
+                            isDense: true,
+                            filled: true,
+                            fillColor: Colors.white,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide.none,
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                    Flexible(
-                      child: filtered.isEmpty
-                          ? Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 32),
-                              child: Center(
-                                child: Text(emptyMessage ?? 'Aucun materiel disponible.'),
-                              ),
-                            )
-                          : ListView.separated(
-                              padding: const EdgeInsets.symmetric(horizontal: 20),
+                        ),
+                        const SizedBox(height: 12),
+                        if (filtered.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            child: Center(
+                              child: Text(emptyMessage ?? 'Aucun materiel disponible.'),
+                            ),
+                          )
+                        else
+                          // Hauteur bornee : le contenu de la liste occupe
+                          // au plus 300px ou (nb items * 72), le plus petit
+                          // des deux. ListView.builder virtualise, donc pas
+                          // de freeze meme avec beaucoup d'items.
+                          SizedBox(
+                            height: math.min(filtered.length * 72.0, 300.0),
+                            child: ListView.separated(
                               itemCount: filtered.length,
                               separatorBuilder: (context, index) => const SizedBox(height: 8),
                               itemBuilder: (context, index) {
@@ -799,6 +803,7 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                                   color: const Color(0xFFF8FAFC),
                                   borderRadius: BorderRadius.circular(16),
                                   child: ListTile(
+                                    dense: true,
                                     title: Text(
                                       material.reference?.isNotEmpty == true
                                           ? material.reference!
@@ -816,18 +821,18 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                                 );
                               },
                             ),
-                    ),
-                    Padding(
-                      padding: EdgeInsets.fromLTRB(20, 8, 20, 12 + mq.viewInsets.bottom.clamp(0.0, 32.0)),
-                      child: Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: const Text('Fermer'),
+                          ),
+                        const SizedBox(height: 4),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('Fermer'),
+                          ),
                         ),
-                      ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             );
@@ -1218,12 +1223,11 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
               });
             }
 
-            // Dialog custom : header fixe + ListView.builder virtualise +
-            // footer fixe. Resiste rotation, clavier, et grandes listes.
+            // Approche bulletproof : SingleChildScrollView + liste hauteur
+            // bornee (virtualisee). Le tout scrolle si l'espace du dialog
+            // est trop petit → aucun overflow possible.
             final mq = MediaQuery.of(context);
             final keyboardOpen = mq.viewInsets.bottom > 0;
-            final availableHeight = mq.size.height - mq.viewInsets.bottom - (keyboardOpen ? 16 : 48);
-            final dialogHeight = availableHeight.clamp(240.0, 640.0);
 
             return Dialog(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
@@ -1232,48 +1236,47 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                 vertical: keyboardOpen ? 8 : 24,
               ),
               child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: 560, maxHeight: dialogHeight),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Text(
-                            nohType == null
-                                ? 'Activites $category'
-                                : 'Activites $category - $nohType',
-                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
-                          ),
-                          const SizedBox(height: 16),
-                          TextField(
-                            controller: controller,
-                            onChanged: applyFilter,
-                            decoration: InputDecoration(
-                              hintText: 'Rechercher une activite ou un Code',
-                              prefixIcon: const Icon(Icons.search),
-                              filled: true,
-                              fillColor: Colors.white,
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(16),
-                                borderSide: BorderSide.none,
-                              ),
+                constraints: const BoxConstraints(maxWidth: 560),
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.only(bottom: mq.viewInsets.bottom.clamp(0.0, 32.0)),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          nohType == null
+                              ? 'Activites $category'
+                              : 'Activites $category - $nohType',
+                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: controller,
+                          onChanged: applyFilter,
+                          decoration: InputDecoration(
+                            hintText: 'Rechercher',
+                            prefixIcon: const Icon(Icons.search),
+                            isDense: true,
+                            filled: true,
+                            fillColor: Colors.white,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: BorderSide.none,
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                    Flexible(
-                      child: filtered.isEmpty
-                          ? const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 32),
-                              child: Center(child: Text('Aucune activite disponible.')),
-                            )
-                          : ListView.separated(
-                              padding: const EdgeInsets.symmetric(horizontal: 20),
+                        ),
+                        const SizedBox(height: 12),
+                        if (filtered.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                            child: Center(child: Text('Aucune activite disponible.')),
+                          )
+                        else
+                          SizedBox(
+                            height: math.min(filtered.length * 72.0, 300.0),
+                            child: ListView.separated(
                               itemCount: filtered.length,
                               separatorBuilder: (context, index) => const SizedBox(height: 8),
                               itemBuilder: (context, index) {
@@ -1282,6 +1285,7 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                                   color: const Color(0xFFF8FAFC),
                                   borderRadius: BorderRadius.circular(16),
                                   child: ListTile(
+                                    dense: true,
                                     title: Text(task.libelle, style: const TextStyle(fontWeight: FontWeight.w700)),
                                     subtitle: Text(task.numItem?.isNotEmpty == true ? 'Code ${task.numItem}' : 'Sans Code'),
                                     trailing: const Icon(Icons.chevron_right_rounded),
@@ -1290,18 +1294,18 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                                 );
                               },
                             ),
-                    ),
-                    Padding(
-                      padding: EdgeInsets.fromLTRB(20, 8, 20, 12 + mq.viewInsets.bottom.clamp(0.0, 32.0)),
-                      child: Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: const Text('Fermer'),
+                          ),
+                        const SizedBox(height: 4),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('Fermer'),
+                          ),
                         ),
-                      ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             );
@@ -2849,6 +2853,7 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                           style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
                         ),
                         const SizedBox(height: 14),
+                        
                         _buildCategoryButtons(),
                         const SizedBox(height: 24),
                         const Text(
