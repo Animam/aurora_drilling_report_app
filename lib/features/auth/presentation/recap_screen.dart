@@ -49,6 +49,9 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
   final List<Offset?> _companySignaturePoints = <Offset?>[];
   bool _isClientSignatureLocked = false;
   bool _isCompanySignatureLocked = false;
+  // Vrai pendant que l'utilisateur signe : bloque le scroll du ListView parent
+  // sinon le geste de dessin est vole par le scroll vertical.
+  bool _signatureInteractionActive = false;
   final TextEditingController _hourMeterController = TextEditingController();
   final TextEditingController _fuelMeterController = TextEditingController();
 
@@ -1759,11 +1762,33 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
                   ),
                   if (!isLocked)
                     Positioned.fill(
-                      child: GestureDetector(
+                      // Listener capte le pointer AVANT le gesture arena :
+                      // permet de bloquer le scroll du ListView parent des le
+                      // premier contact du doigt, evitant que le scroll vole
+                      // le geste de signature.
+                      child: Listener(
                         behavior: HitTestBehavior.opaque,
-                        onPanStart: (details) => _addSignaturePoint(points, details.localPosition, onChanged),
-                        onPanUpdate: (details) => _addSignaturePoint(points, details.localPosition, onChanged),
-                        onPanEnd: (_) => _endSignatureStroke(points, onChanged),
+                        onPointerDown: (_) {
+                          if (!_signatureInteractionActive) {
+                            setState(() => _signatureInteractionActive = true);
+                          }
+                        },
+                        onPointerUp: (_) {
+                          if (_signatureInteractionActive) {
+                            setState(() => _signatureInteractionActive = false);
+                          }
+                        },
+                        onPointerCancel: (_) {
+                          if (_signatureInteractionActive) {
+                            setState(() => _signatureInteractionActive = false);
+                          }
+                        },
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onPanStart: (details) => _addSignaturePoint(points, details.localPosition, onChanged),
+                          onPanUpdate: (details) => _addSignaturePoint(points, details.localPosition, onChanged),
+                          onPanEnd: (_) => _endSignatureStroke(points, onChanged),
+                        ),
                       ),
                     ),
                   if (isLocked)
@@ -1969,6 +1994,12 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
               ),
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+                // Physics bloque le scroll quand l'utilisateur est en train
+                // de signer (dessine avec le doigt / stylet). Reactif via
+                // setState dans le Listener autour du GestureDetector signature.
+                physics: _signatureInteractionActive
+                    ? const NeverScrollableScrollPhysics()
+                    : const ClampingScrollPhysics(),
                 children: [
                   Container(
                     margin: const EdgeInsets.only(bottom: 18),
