@@ -1,4 +1,4 @@
-import 'dart:math' as math;
+﻿import 'dart:math' as math;
 
 import 'package:aurora_drilling_report/data/local/db/app_database.dart';
 import 'package:aurora_drilling_report/features/auth/presentation/employee_form_screen.dart';
@@ -98,18 +98,6 @@ class _ProductionTimeLogDraft {
     distance.dispose();
     duree.dispose();
   }
-}
-
-class _ActivityProgressSegment {
-  const _ActivityProgressSegment({
-    required this.label,
-    required this.category,
-    required this.durationHours,
-  });
-
-  final String label;
-  final String category;
-  final double durationHours;
 }
 
 class ProductionScreen extends ConsumerStatefulWidget {
@@ -2547,149 +2535,6 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
     );
   }
 
-  Widget _buildActivityProgressBar() {
-    final shiftStart = _shiftStart();
-    final shiftEnd = _shiftEnd();
-    final shiftDuration = shiftEnd - shiftStart;
-
-    final segments = <_ActivityProgressSegment>[];
-    for (final log in _timeLogs) {
-      final start = _parseHour(log.heureDebut.text.trim());
-      final rawEnd = _parseHour(log.heureFin.text.trim());
-      if (start == null || rawEnd == null) {
-        continue;
-      }
-      final normalizedStart = _normalizeForShift(start);
-      var normalizedEnd = _normalizeForShift(rawEnd);
-      if (normalizedEnd < normalizedStart) {
-        normalizedEnd += 24.0;
-      }
-      final duration = normalizedEnd - normalizedStart;
-      if (duration <= 0) {
-        continue;
-      }
-      final task = _findTaskByLog(log);
-      segments.add(
-        _ActivityProgressSegment(
-          label: task?.libelle ?? log.category,
-          category: log.category,
-          durationHours: duration,
-        ),
-      );
-    }
-
-    final loggedDuration = segments.fold<double>(0, (sum, segment) => sum + segment.durationHours);
-    final remaining = shiftDuration > loggedDuration ? shiftDuration - loggedDuration : 0.0;
-
-    if (segments.isEmpty && remaining <= 0) {
-      return const SizedBox.shrink();
-    }
-
-    int toFlex(double hours) {
-      final minutes = (hours * 60).round();
-      return minutes < 1 ? 1 : minutes;
-    }
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      margin: const EdgeInsets.only(bottom: 20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Text(
-                'Progression des activites',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
-              ),
-              const Spacer(),
-              Text(
-                shiftDuration > 0
-                    ? '${_formatDuration(loggedDuration)} / ${_formatDuration(shiftDuration)}'
-                    : _formatDuration(loggedDuration),
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF64748B),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: SizedBox(
-              height: 18,
-              child: Row(
-                children: [
-                  for (final segment in segments)
-                    Expanded(
-                      flex: toFlex(segment.durationHours),
-                      child: Tooltip(
-                        message: '${segment.label} (${_formatDuration(segment.durationHours)})',
-                        waitDuration: const Duration(milliseconds: 200),
-                        child: Container(
-                          height: double.infinity,
-                          margin: const EdgeInsets.only(right: 1),
-                          color: _categoryColor(segment.category),
-                        ),
-                      ),
-                    ),
-                  if (remaining > 0)
-                    Expanded(
-                      flex: toFlex(remaining),
-                      child: Tooltip(
-                        message: 'Non planifie (${_formatDuration(remaining)})',
-                        waitDuration: const Duration(milliseconds: 200),
-                        child: Container(
-                          height: double.infinity,
-                          color: const Color(0xFFE2E8F0),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 10),
-          // Wrap(
-          //   spacing: 14,
-          //   runSpacing: 6,
-          //   children: [
-          //     for (final category in _categories) _buildProgressLegendItem(category),
-          //   ],
-          // ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProgressLegendItem(String category) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 10,
-          height: 10,
-          decoration: BoxDecoration(
-            color: _categoryColor(category),
-            shape: BoxShape.circle,
-          ),
-        ),
-        const SizedBox(width: 6),
-        Text(
-          category,
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF475569)),
-        ),
-      ],
-    );
-  }
-
   Widget _buildCategoryButtons() {
     return Row(
       children: List.generate(_categories.length, (index) {
@@ -3008,7 +2853,7 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                           style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
                         ),
                         const SizedBox(height: 14),
-                        _buildActivityProgressBar(),
+                        
                         _buildCategoryButtons(),
                         const SizedBox(height: 24),
                         const Text(
@@ -3028,3 +2873,12 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
     );
   }
 }
+
+
+
+
+
+
+
+
+
