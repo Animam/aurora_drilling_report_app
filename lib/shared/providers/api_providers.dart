@@ -14,7 +14,7 @@ final cookieJarProvider = Provider<CookieJar>((ref) {
 final dioProvider = Provider<Dio>((ref) {
   final dio = Dio(
     BaseOptions(
-      baseUrl: 'http://hg609qw0948.sn.mynetname.net:8016',
+      baseUrl: 'http://172.16.14.247:8016',  // http://localhost:8016/web  http://hg609qw0948.sn.mynetname.net:8016
       headers: {
         'Content-Type': 'application/json',
       },
