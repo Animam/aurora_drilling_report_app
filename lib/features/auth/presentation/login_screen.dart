@@ -235,158 +235,73 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        width: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFFDF8E1), Color(0xFFF5F5F5)],
-          ),
-        ),
-        child: SafeArea(
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 760),
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(28),
-                      decoration: BoxDecoration(
-                        color: _navy,
-                        borderRadius: BorderRadius.circular(28),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Color(0x22000000),
-                            blurRadius: 24,
-                            offset: Offset(0, 12),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            width: 86,
-                            height: 86,
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(22),
-                            ),
-                            child: Image.asset(
-                              'assets/images/aurora_logo.png',
-                              fit: BoxFit.contain,
-                            ),
-                          ),
-                          const SizedBox(height: 22),
-                          const Text(
-                            'Rapport De Forage',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 30,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                          
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 22),
-                    Container(
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(28),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Color(0x12000000),
-                            blurRadius: 18,
-                            offset: Offset(0, 8),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Connexion',
-                            style: TextStyle(
-                              color: _textDark,
-                              fontSize: 24,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          
-                          const SizedBox(height: 16),
-                          _buildLabel('Utilisateur'),
-                          _buildTextField(
-                            controller: _loginController,
-                            hint: 'Entrez nom utilisateur',
-                            icon: Icons.person_2,
-                          ),
-                          const SizedBox(height: 18),
-                          _buildLabel('Mot de Passe'),
-                          _buildTextField(
-                            controller: _passwordController,
-                            hint: 'Entrez Mot de Passe',
-                            icon: Icons.lock_outline,
-                            isPassword: true,
-                            obscureText: _obscurePassword,
-                            onTogglePassword: () {
-                              setState(() {
-                                _obscurePassword = !_obscurePassword;
-                              });
-                            },
-                          ),
-                          const SizedBox(height: 24),
-                          SizedBox(
-                            width: double.infinity,
-                            height: 58,
-                            child: ElevatedButton(
-                              onPressed: _loading ? null : _login,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: _orange,
-                                foregroundColor: Colors.black,
-                                disabledBackgroundColor: _orange.withValues(alpha: 0.6),
-                                elevation: 0,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(18),
-                                ),
-                              ),
-                              child: _loading
-                                  ? const SizedBox(
-                                      width: 22,
-                                      height: 22,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2.4,
-                                        valueColor: AlwaysStoppedAnimation<Color>(_navy),
-                                      ),
-                                    )
-                                  : const Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Text(
-                                          'Se Connecter',
-                                          style: TextStyle(
-                                            fontSize: 17,
-                                            fontWeight: FontWeight.w800,
-                                          ),
-                                        ),
-                                        
-                                      ],
-                                    ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                   
-                  ],
+      backgroundColor: const Color(0xFFF5F5F5),
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFFFDF8E1), Color(0xFFF5F5F5)],
                 ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: -120,
+            right: -90,
+            child: _buildGlow(320, _orange.withValues(alpha: 0.08)),
+          ),
+          Positioned(
+            bottom: -150,
+            left: -120,
+            child: _buildGlow(380, _navy.withValues(alpha: 0.05)),
+          ),
+          SafeArea(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final isWide = constraints.maxWidth >= 900;
+                return isWide ? _buildWideLayout() : _buildCompactLayout();
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Layouts
+  // ---------------------------------------------------------------------------
+
+  Widget _buildWideLayout() {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(32),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1080),
+          child: Container(
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(32),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x1A13233F),
+                  blurRadius: 44,
+                  offset: Offset(0, 24),
+                ),
+              ],
+            ),
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SizedBox(width: 420, child: _buildBrandPanel()),
+                  Expanded(child: _buildLoginCard(wide: true)),
+                ],
               ),
             ),
           ),
@@ -395,15 +310,493 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 
+  Widget _buildCompactLayout() {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(18, 16, 18, 28),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 460),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildCompactHero(),
+              Transform.translate(
+                offset: const Offset(0, -30),
+                child: Container(
+                  clipBehavior: Clip.antiAlias,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(28),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x1A13233F),
+                        blurRadius: 34,
+                        offset: Offset(0, 18),
+                      ),
+                    ],
+                  ),
+                  child: _buildLoginCard(wide: false),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Brand side (wide screens)
+  // ---------------------------------------------------------------------------
+
+  Widget _buildBrandPanel() {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF13233F), Color(0xFF1E3A5F)],
+        ),
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            top: -70,
+            right: -60,
+            child: _buildGlow(240, Colors.white.withValues(alpha: 0.05)),
+          ),
+          Positioned(
+            bottom: -90,
+            left: -60,
+            child: _buildGlow(230, _orange.withValues(alpha: 0.18)),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(40),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 92,
+                      height: 92,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                      child: Image.asset(
+                        'assets/images/aurora_logo.png',
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+                    const SizedBox(height: 30),
+                    const Text(
+                      'Rapport De Forage',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 32,
+                        fontWeight: FontWeight.w900,
+                        height: 1.1,
+                        letterSpacing: -0.4,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'Aurora · Saisie des feuilles de forage',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.68),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 26),
+                    Container(
+                      width: 52,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: _orange,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                    ),
+                    const SizedBox(height: 28),
+                    _buildFeatureRow(
+                      Icons.offline_bolt_outlined,
+                      'Fonctionne hors-ligne',
+                      'Saisie terrain sans connexion, synchronisation des que le reseau revient.',
+                    ),
+                    const SizedBox(height: 16),
+                    _buildFeatureRow(
+                      Icons.tablet_android_outlined,
+                      'Pense pour la tablette',
+                      'Des zones de saisie larges, adaptees au travail en zone de forage.',
+                    ),
+                    const SizedBox(height: 16),
+                    _buildFeatureRow(
+                      Icons.sync_alt_rounded,
+                      'Synchronisation Odoo',
+                      'Envoi des feuilles completes vers le serveur en une seule action.',
+                    ),
+                  ],
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 32),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.lock_outline_rounded,
+                        size: 14,
+                        color: Colors.white.withValues(alpha: 0.42),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Session securisee · Aurora Drilling Report',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.42),
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFeatureRow(IconData icon, String title, String subtitle) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(icon, color: _orange, size: 20),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.60),
+                  fontSize: 12,
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Brand header (phones)
+  // ---------------------------------------------------------------------------
+
+  Widget _buildCompactHero() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 64),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF13233F), Color(0xFF1E3A5F)],
+        ),
+        borderRadius: BorderRadius.circular(30),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 58,
+                height: 58,
+                padding: const EdgeInsets.all(11),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Image.asset(
+                  'assets/images/aurora_logo.png',
+                  fit: BoxFit.contain,
+                ),
+              ),
+              
+            ],
+          ),
+          const SizedBox(height: 22),
+          const Text(
+            'Rapport De Forage',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 28,
+              fontWeight: FontWeight.w900,
+              height: 1.1,
+              letterSpacing: -0.4,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Aurora · Saisie des feuilles de forage',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.68),
+              fontSize: 13.5,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 18),
+          Container(
+            width: 44,
+            height: 4,
+            decoration: BoxDecoration(
+              color: _orange,
+              borderRadius: BorderRadius.circular(999),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Login form
+  // ---------------------------------------------------------------------------
+
+  Widget _buildLoginCard({required bool wide}) {
+    return Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: wide ? 44 : 24,
+        vertical: wide ? 44 : 28,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: const BoxDecoration(
+                  color: _orange,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'CONNEXION',
+                style: TextStyle(
+                  color: _orange,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.4,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          const Text(
+            'Bienvenue',
+            style: TextStyle(
+              color: _textDark,
+              fontSize: 28,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.3,
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Connectez-vous pour acceder a vos feuilles de forage.',
+            style: TextStyle(
+              color: _muted,
+              fontSize: 14,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 28),
+          _buildLabel('Utilisateur'),
+          _buildTextField(
+            controller: _loginController,
+            hint: 'Entrez votre nom utilisateur',
+            icon: Icons.person_2_outlined,
+            textInputAction: TextInputAction.next,
+            autofillHints: const [AutofillHints.username],
+          ),
+          const SizedBox(height: 18),
+          _buildLabel('Mot de passe'),
+          _buildTextField(
+            controller: _passwordController,
+            hint: 'Entrez votre mot de passe',
+            icon: Icons.lock_outline_rounded,
+            isPassword: true,
+            obscureText: _obscurePassword,
+            onTogglePassword: () {
+              setState(() {
+                _obscurePassword = !_obscurePassword;
+              });
+            },
+            textInputAction: TextInputAction.done,
+            autofillHints: const [AutofillHints.password],
+            onSubmitted: (_) {
+              if (!_loading) {
+                _login();
+              }
+            },
+          ),
+          const SizedBox(height: 22),
+          _buildOfflineNote(),
+          const SizedBox(height: 22),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: _loading ? null : _login,
+              style: FilledButton.styleFrom(
+                backgroundColor: _orange,
+                foregroundColor: _navy,
+                disabledBackgroundColor: _orange.withValues(alpha: 0.55),
+                disabledForegroundColor: _navy.withValues(alpha: 0.55),
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                textStyle: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              child: _loading
+                  ? const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.4,
+                        valueColor: AlwaysStoppedAnimation<Color>(_navy),
+                      ),
+                    )
+                  : const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.login_rounded, size: 20),
+                        SizedBox(width: 10),
+                        Flexible(
+                          child: Text(
+                            'Se Connecter',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
+          ),
+          const SizedBox(height: 18),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
+                Icons.verified_user_outlined,
+                size: 14,
+                color: _muted,
+              ),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  'Connexion securisee · Aurora Drilling Report',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: _muted.withValues(alpha: 0.9),
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOfflineNote() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFDF8E1),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFF0E4BC)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.wifi_off_rounded, size: 18, color: _orange),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Mode hors-ligne disponible apres une premiere connexion avec internet.',
+              style: TextStyle(
+                color: _muted.withValues(alpha: 0.95),
+                fontSize: 12,
+                height: 1.4,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGlow(double size, Color color) {
+    return IgnorePointer(
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+      ),
+    );
+  }
+
   Widget _buildLabel(String label) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: 8, left: 2),
       child: Text(
-        label,
+        label.toUpperCase(),
         style: const TextStyle(
-          color: _textDark,
+          color: _muted,
           fontWeight: FontWeight.w700,
-          fontSize: 14,
+          fontSize: 11,
+          letterSpacing: 0.9,
         ),
       ),
     );
@@ -411,48 +804,63 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   Widget _buildTextField({
     required TextEditingController controller,
-    required String? hint,
+    required String hint,
     required IconData icon,
-    bool enable = true,
     bool isPassword = false,
     bool obscureText = false,
     VoidCallback? onTogglePassword,
+    TextInputAction textInputAction = TextInputAction.next,
+    ValueChanged<String>? onSubmitted,
+    Iterable<String>? autofillHints,
   }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: enable ? const Color(0xFFF8FAFD) : const Color(0xFFF1F4F8),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: enable ? const Color(0xFFD7DFEA) : const Color(0xFFE5EAF1),
-        ),
+    return TextField(
+      controller: controller,
+      obscureText: isPassword ? obscureText : false,
+      textInputAction: textInputAction,
+      onSubmitted: onSubmitted,
+      autofillHints: autofillHints,
+      style: const TextStyle(
+        color: _textDark,
+        fontSize: 15,
+        fontWeight: FontWeight.w600,
       ),
-      child: TextField(
-        controller: controller,
-        enabled: enable,
-        obscureText: isPassword ? obscureText : false,
-        style: const TextStyle(
-          color: _textDark,
-          fontSize: 15,
-          fontWeight: FontWeight.w600,
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: const TextStyle(
+          color: _muted,
+          fontWeight: FontWeight.w500,
+          fontSize: 14,
         ),
-        decoration: InputDecoration(
-          hintText: hint,
-          hintStyle: const TextStyle(
-            color: _muted,
-            fontWeight: FontWeight.w500,
-          ),
-          prefixIcon: Icon(icon, color: _navy.withValues(alpha: 0.75)),
-          suffixIcon: isPassword
-              ? IconButton(
-                  onPressed: onTogglePassword,
-                  icon: Icon(
-                    obscureText ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                    color: _muted,
-                  ),
-                )
-              : null,
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(vertical: 18),
+        prefixIcon: Icon(icon, color: _navy.withValues(alpha: 0.7), size: 20),
+        suffixIcon: isPassword
+            ? IconButton(
+                onPressed: onTogglePassword,
+                tooltip: obscureText
+                    ? 'Afficher le mot de passe'
+                    : 'Masquer le mot de passe',
+                icon: Icon(
+                  obscureText
+                      ? Icons.visibility_off_outlined
+                      : Icons.visibility_outlined,
+                  color: _muted,
+                  size: 20,
+                ),
+              )
+            : null,
+        filled: true,
+        fillColor: const Color(0xFFF8FAFD),
+        contentPadding: const EdgeInsets.symmetric(vertical: 17, horizontal: 16),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: Color(0xFFD7DFEA)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: Color(0xFFD7DFEA)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(16),
+          borderSide: const BorderSide(color: _orange, width: 1.6),
         ),
       ),
     );
