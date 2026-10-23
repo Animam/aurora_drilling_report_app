@@ -40,7 +40,10 @@ class _ProductionTimeLogDraft {
     this.duree.text = duree;
   }
 
-  factory _ProductionTimeLogDraft.fromReportDraft(ReportTimeLogDraft draft, String category) {
+  factory _ProductionTimeLogDraft.fromReportDraft(
+    ReportTimeLogDraft draft,
+    String category,
+  ) {
     return _ProductionTimeLogDraft(
       category: category,
       selectedTaskOdooId: draft.selectedTaskOdooId,
@@ -142,6 +145,9 @@ class ProductionScreen extends ConsumerStatefulWidget {
 
 class _ProductionScreenState extends ConsumerState<ProductionScreen> {
   static const List<String> _categories = ['NOH', 'DOWN', 'DELAY', 'STANDBY'];
+  static const Map<String, String> _categoryLabels = {
+    'NOH': 'Net Operational Hours',
+  };
   static const Map<String, String> _categoryCodes = {
     'NOH': '1',
     'DELAY': '2',
@@ -150,6 +156,23 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
   };
   static const String _drillingActivityCode = '3';
   static const String _specialActivityCode = '5';
+
+  static const Color _accentOrange = Color(0xFFF18E28);
+  static const Color _designNavy = Color(0xFF13233F);
+  static const Color _designNavyLight = Color(0xFF1E3A5F);
+  static const Color _textDark = Color(0xFF18243E);
+  static const Color _muted = Color(0xFF69758C);
+  static const Color _border = Color(0xFFD7DFEA);
+  static const Color _softBg = Color(0xFFFDF8E1);
+
+  bool get _isNightShift =>
+      widget.quart.toLowerCase().contains('night') ||
+      widget.quart.toLowerCase().contains('nuit');
+
+  String get _quartShort => _isNightShift ? 'Nuit' : 'Jour';
+
+  String _categoryLabel(String category) =>
+      _categoryLabels[category] ?? category;
 
   final List<_ProductionTimeLogDraft> _timeLogs = [];
   List<Task> _tasks = [];
@@ -188,7 +211,10 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
     final equipments = await db.getAllEquipments();
     final locations = await db.getAllLocations();
     final materialReferences = await db.getAllMaterialReferences();
-    materialReferences.sort((a, b) => a.description.toLowerCase().compareTo(b.description.toLowerCase()));
+    materialReferences.sort(
+      (a, b) =>
+          a.description.toLowerCase().compareTo(b.description.toLowerCase()),
+    );
     final draft = ref.read(reportDraftProvider);
     final projectDrillingTaskIds = await ref
         .read(projectDrillingTaskStoreProvider)
@@ -199,9 +225,15 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
     final projectDrillingTypes = await ref
         .read(projectDrillingTypeStoreProvider)
         .getDrillingTypesForProject(widget.projectOdooId);
-    final materialTagMapRaw = await ref.read(materialTagStoreProvider).readMap();
-    final materialTagMap = materialTagMapRaw.map((key, value) => MapEntry(int.tryParse(key) ?? 0, value));
-    final recentHoleNos = await db.getRecentHoleNosByProject(projectOdooId: widget.projectOdooId);
+    final materialTagMapRaw = await ref
+        .read(materialTagStoreProvider)
+        .readMap();
+    final materialTagMap = materialTagMapRaw.map(
+      (key, value) => MapEntry(int.tryParse(key) ?? 0, value),
+    );
+    final recentHoleNos = await db.getRecentHoleNosByProject(
+      projectOdooId: widget.projectOdooId,
+    );
 
     final sameContext =
         draft.projectOdooId == widget.projectOdooId &&
@@ -215,7 +247,10 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
               .map(
                 (row) => _ProductionTimeLogDraft.fromReportDraft(
                   row,
-                  _resolveTaskCategory(_findTaskById(tasks, row.selectedTaskOdooId), fallbackCode: row.codeTache),
+                  _resolveTaskCategory(
+                    _findTaskById(tasks, row.selectedTaskOdooId),
+                    fallbackCode: row.codeTache,
+                  ),
                 ),
               )
               .toList()
@@ -233,9 +268,21 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
       _recentHoleNos = recentHoleNos;
       _projectHoleProgressMap = projectHoleProgressMap;
       _materialTagMap = materialTagMap;
-      _project = _findByOdooId<Project>(projects, widget.projectOdooId, (item) => item.odooId);
-      _foreuse = _findByOdooId<Equipment>(equipments, widget.foreuseOdooId, (item) => item.odooId);
-      _location = _findByOdooId<Location>(locations, widget.locationOdooId, (item) => item.odooId);
+      _project = _findByOdooId<Project>(
+        projects,
+        widget.projectOdooId,
+        (item) => item.odooId,
+      );
+      _foreuse = _findByOdooId<Equipment>(
+        equipments,
+        widget.foreuseOdooId,
+        (item) => item.odooId,
+      );
+      _location = _findByOdooId<Location>(
+        locations,
+        widget.locationOdooId,
+        (item) => item.odooId,
+      );
       _timeLogs
         ..clear()
         ..addAll(restoredLogs);
@@ -321,44 +368,51 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
   }
 
   List<Task> _tasksForCategory(String category, {String? nohType}) {
-    return _tasks.where((task) {
-      final categoryCode = _categoryCodes[category];
-      final taskCategoryCode = (task.categorie ?? '').trim();
+    return _tasks
+        .where((task) {
+          final categoryCode = _categoryCodes[category];
+          final taskCategoryCode = (task.categorie ?? '').trim();
 
-      if (categoryCode != null) {
-        if (taskCategoryCode != categoryCode) {
-          return false;
-        }
-      } else if (_resolveTaskCategory(task) != category) {
-        return false;
-      }
-
-      final activityCode = (task.categorieActivity ?? '').trim();
-      final activityLabel = (task.typeActivite ?? '').trim().toLowerCase();
-      final isSpecialActivity = activityCode == _specialActivityCode || activityLabel == 'special';
-
-      if ((category == 'DELAY' || category == 'STANDBY') && isSpecialActivity) {
-        return false;
-      }
-
-      if (category == 'NOH' && nohType != null) {
-        if (nohType == 'DRILLING') {
-          if (activityCode != _drillingActivityCode) {
+          if (categoryCode != null) {
+            if (taskCategoryCode != categoryCode) {
+              return false;
+            }
+          } else if (_resolveTaskCategory(task) != category) {
             return false;
           }
-          return _projectDrillingTaskIds.contains(task.odooId);
-        }
-        return activityCode != _drillingActivityCode;
-      }
-      return true;
-    }).toList(growable: false);
+
+          final activityCode = (task.categorieActivity ?? '').trim();
+          final activityLabel = (task.typeActivite ?? '').trim().toLowerCase();
+          final isSpecialActivity =
+              activityCode == _specialActivityCode ||
+              activityLabel == 'special';
+
+          if ((category == 'DELAY' || category == 'STANDBY') &&
+              isSpecialActivity) {
+            return false;
+          }
+
+          if (category == 'NOH' && nohType != null) {
+            if (nohType == 'DRILLING') {
+              if (activityCode != _drillingActivityCode) {
+                return false;
+              }
+              return _projectDrillingTaskIds.contains(task.odooId);
+            }
+            return activityCode != _drillingActivityCode;
+          }
+          return true;
+        })
+        .toList(growable: false);
   }
 
   void _persistDraft() {
     if (!mounted) {
       return;
     }
-    ref.read(reportDraftProvider.notifier).setTimeLogs(
+    ref
+        .read(reportDraftProvider.notifier)
+        .setTimeLogs(
           _timeLogs.map((row) => row.toReportDraft()).toList(growable: false),
         );
     Future.microtask(_autoSaveTimeLogs);
@@ -377,28 +431,34 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
     }
 
     final uuid = const Uuid();
-    final rows = _timeLogs.map((row) {
-      return <String, dynamic>{
-        'mobile_uuid': uuid.v4(),
-        'item': row.codeTache.text.trim(),
-        'tache_odoo_id': row.selectedTaskOdooId,
-        'hole_no': row.holeNo.text.trim().isEmpty ? null : row.holeNo.text.trim(),
-        'note': row.commentaire.text.trim().isEmpty ? null : row.commentaire.text.trim(),
-        'date_d': _parseHour(row.heureDebut.text.trim()),
-        'date_f': _parseHour(row.heureFin.text.trim()),
-        'rr': _parseHour(row.duree.text.trim()),
-        'distance': int.tryParse(row.distance.text.trim()),
-        'from_dim': int.tryParse(row.fromDe.text.trim()),
-        'to_dim': int.tryParse(row.toA.text.trim()),
-        'total_dim': int.tryParse(row.total.text.trim()),
-        'sequence': 10 * (_timeLogs.indexOf(row) + 1),
-      };
-    }).where((row) => (row['item'] as String).isNotEmpty).toList(growable: false);
+    final rows = _timeLogs
+        .map((row) {
+          return <String, dynamic>{
+            'mobile_uuid': uuid.v4(),
+            'item': row.codeTache.text.trim(),
+            'tache_odoo_id': row.selectedTaskOdooId,
+            'hole_no': row.holeNo.text.trim().isEmpty
+                ? null
+                : row.holeNo.text.trim(),
+            'note': row.commentaire.text.trim().isEmpty
+                ? null
+                : row.commentaire.text.trim(),
+            'date_d': _parseHour(row.heureDebut.text.trim()),
+            'date_f': _parseHour(row.heureFin.text.trim()),
+            'rr': _parseHour(row.duree.text.trim()),
+            'distance': int.tryParse(row.distance.text.trim()),
+            'from_dim': int.tryParse(row.fromDe.text.trim()),
+            'to_dim': int.tryParse(row.toA.text.trim()),
+            'total_dim': int.tryParse(row.total.text.trim()),
+            'sequence': 10 * (_timeLogs.indexOf(row) + 1),
+          };
+        })
+        .where((row) => (row['item'] as String).isNotEmpty)
+        .toList(growable: false);
 
-    await ref.read(appDatabaseProvider).replaceFeuilleLignesDraft(
-          feuilleLocalId: feuilleLocalId,
-          rows: rows,
-        );
+    await ref
+        .read(appDatabaseProvider)
+        .replaceFeuilleLignesDraft(feuilleLocalId: feuilleLocalId, rows: rows);
   }
 
   bool _isDrillingLog(_ProductionTimeLogDraft log) {
@@ -485,9 +545,12 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
     // actuelle. Elle sert a filtrer le serverMax : si la ligne editee est
     // (probablement) l'origine du serverMax, on ne doit pas se bloquer soi-meme.
     int? editedLineToDim;
-    if (excludeIndex != null && excludeIndex >= 0 && excludeIndex < _timeLogs.length) {
+    if (excludeIndex != null &&
+        excludeIndex >= 0 &&
+        excludeIndex < _timeLogs.length) {
       final row = _timeLogs[excludeIndex];
-      if (row.holeNo.text.trim().toLowerCase() == normalizedHole.toLowerCase()) {
+      if (row.holeNo.text.trim().toLowerCase() ==
+          normalizedHole.toLowerCase()) {
         editedLineToDim = int.tryParse(row.toA.text.trim());
       }
     }
@@ -503,7 +566,8 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
     // Si la ligne editee a une toA >= serverMax, la ligne courante est tres
     // probablement la source du serverMax (sync anterieure de cette feuille).
     // On ignore serverMax pour ne pas se bloquer soi-meme.
-    final shouldIgnoreServerMax = serverMax != null &&
+    final shouldIgnoreServerMax =
+        serverMax != null &&
         editedLineToDim != null &&
         serverMax <= editedLineToDim;
     if (serverMax != null && !shouldIgnoreServerMax) {
@@ -520,19 +584,23 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
     // Utiliser draft.currentFeuilleLocalId (mis a jour par _autoSaveTimeLogs)
     // plutot que widget.currentFeuilleLocalId (fige a la construction du widget,
     // null pour une feuille nouvellement creee et jamais rafraichi).
-    final currentFeuilleLocalId = ref.read(reportDraftProvider).currentFeuilleLocalId
-        ?? widget.currentFeuilleLocalId;
+    final currentFeuilleLocalId =
+        ref.read(reportDraftProvider).currentFeuilleLocalId ??
+        widget.currentFeuilleLocalId;
     final db = ref.read(appDatabaseProvider);
     final localMax = await db.getLocalMaxToDimForHole(
-          projectOdooId: widget.projectOdooId,
-          holeNo: normalizedHole,
-          excludeFeuilleLocalId: currentFeuilleLocalId,
-        );
+      projectOdooId: widget.projectOdooId,
+      holeNo: normalizedHole,
+      excludeFeuilleLocalId: currentFeuilleLocalId,
+    );
     if (localMax != null) {
       values.add(localMax);
     }
 
-    final draftMax = _maxToDimFromCurrentDraft(normalizedHole, excludeIndex: excludeIndex);
+    final draftMax = _maxToDimFromCurrentDraft(
+      normalizedHole,
+      excludeIndex: excludeIndex,
+    );
     if (draftMax != null) {
       values.add(draftMax);
     }
@@ -601,100 +669,115 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
     final controller = TextEditingController(text: '1');
 
     final quantity = await showDialog<String>(
-        context: context,
-        builder: (context) {
-          return StatefulBuilder(
-            builder: (context, setDialogState) {
-              void updateQuantity(int delta) {
-                final currentVal = int.tryParse(controller.text) ?? 0;
-                final nextVal = currentVal + delta;
-                if (nextVal < 0) {
-                  return;
-                }
-                setDialogState(() {
-                  controller.text = nextVal.toString();
-                });
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            void updateQuantity(int delta) {
+              final currentVal = int.tryParse(controller.text) ?? 0;
+              final nextVal = currentVal + delta;
+              if (nextVal < 0) {
+                return;
               }
+              setDialogState(() {
+                controller.text = nextVal.toString();
+              });
+            }
 
-              return AlertDialog(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-                title: const Text(
-                  'Quantite',
-                  style: TextStyle(fontWeight: FontWeight.w800),
-                ),
-                content: SizedBox(
-                  width: 320,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          border: Border.all(color: const Color(0xFFE5E7EB)),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: IntrinsicHeight(
-                          child: Row(
-                            children: [
-                              Container(width: 4, color: const Color(0xFF1E3A5F)),
-                              IconButton(
-                                visualDensity: VisualDensity.compact,
-                                icon: const Icon(Icons.remove, size: 18, color: Colors.redAccent),
-                                onPressed: () => updateQuantity(-1),
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
+              title: const Text(
+                'Quantite',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+              content: SizedBox(
+                width: 320,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        border: Border.all(color: const Color(0xFFE5E7EB)),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: IntrinsicHeight(
+                        child: Row(
+                          children: [
+                            Container(width: 4, color: const Color(0xFF1E3A5F)),
+                            IconButton(
+                              visualDensity: VisualDensity.compact,
+                              icon: const Icon(
+                                Icons.remove,
+                                size: 18,
+                                color: Colors.redAccent,
                               ),
-                              Expanded(
-                                child: TextField(
-                                  controller: controller,
-                                  textAlign: TextAlign.center,
-                                  keyboardType: TextInputType.number,
-                                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-                                  decoration: const InputDecoration(
-                                    hintText: 'Quantite',
-                                    border: InputBorder.none,
-                                    isDense: true,
-                                  ),
+                              onPressed: () => updateQuantity(-1),
+                            ),
+                            Expanded(
+                              child: TextField(
+                                controller: controller,
+                                textAlign: TextAlign.center,
+                                keyboardType: TextInputType.number,
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.digitsOnly,
+                                ],
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                                decoration: const InputDecoration(
+                                  hintText: 'Quantite',
+                                  border: InputBorder.none,
+                                  isDense: true,
                                 ),
                               ),
-                              IconButton(
-                                visualDensity: VisualDensity.compact,
-                                icon: const Icon(Icons.add, size: 18, color: Colors.green),
-                                onPressed: () => updateQuantity(1),
+                            ),
+                            IconButton(
+                              visualDensity: VisualDensity.compact,
+                              icon: const Icon(
+                                Icons.add,
+                                size: 18,
+                                color: Colors.green,
                               ),
-                            ],
-                          ),
+                              onPressed: () => updateQuantity(1),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Annuler'),
-                  ),
-                  FilledButton(
-                    onPressed: () {
-                      final value = controller.text.trim();
-                      if (value.isEmpty || value == '0') {
-                        return;
-                      }
-                      // Retirer le focus proprement AVANT le pop, sans passer
-                      // par FocusScope.of(context) qui peut affecter des scopes
-                      // parents (activity dialog, etc.) et provoquer l'assertion
-                      // _dependents.isEmpty. primaryFocus est le focus courant
-                      // le plus local (le TextField quantite).
-                      FocusManager.instance.primaryFocus?.unfocus();
-                      Navigator.of(context, rootNavigator: true).pop(value);
-                    },
-                    child: const Text('Valider'),
-                  ),
-                ],
-              );
-            },
-          );
-        },
-      );
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Annuler'),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    final value = controller.text.trim();
+                    if (value.isEmpty || value == '0') {
+                      return;
+                    }
+                    // Retirer le focus proprement AVANT le pop, sans passer
+                    // par FocusScope.of(context) qui peut affecter des scopes
+                    // parents (activity dialog, etc.) et provoquer l'assertion
+                    // _dependents.isEmpty. primaryFocus est le focus courant
+                    // le plus local (le TextField quantite).
+                    FocusManager.instance.primaryFocus?.unfocus();
+                    Navigator.of(context, rootNavigator: true).pop(value);
+                  },
+                  child: const Text('Valider'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
     return quantity;
   }
 
@@ -731,9 +814,11 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
       builder: (context) {
         final controller = TextEditingController();
         var filtered = _materialReferences
-            .where((material) =>
-                !_isMaterialAlreadyAdded(material.odooId) &&
-                matchesMaterialTags(material))
+            .where(
+              (material) =>
+                  !_isMaterialAlreadyAdded(material.odooId) &&
+                  matchesMaterialTags(material),
+            )
             .toList(growable: false);
 
         return StatefulBuilder(
@@ -741,19 +826,21 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
             void applyFilter(String query) {
               final normalized = query.trim().toLowerCase();
               setDialogState(() {
-                filtered = _materialReferences.where((material) {
-                  if (_isMaterialAlreadyAdded(material.odooId) ||
-                      !matchesMaterialTags(material)) {
-                    return false;
-                  }
-                  if (normalized.isEmpty) {
-                    return true;
-                  }
-                  final haystack =
-                      '${material.reference ?? ''} ${material.description}'
-                          .toLowerCase();
-                  return haystack.contains(normalized);
-                }).toList(growable: false);
+                filtered = _materialReferences
+                    .where((material) {
+                      if (_isMaterialAlreadyAdded(material.odooId) ||
+                          !matchesMaterialTags(material)) {
+                        return false;
+                      }
+                      if (normalized.isEmpty) {
+                        return true;
+                      }
+                      final haystack =
+                          '${material.reference ?? ''} ${material.description}'
+                              .toLowerCase();
+                      return haystack.contains(normalized);
+                    })
+                    .toList(growable: false);
               });
             }
 
@@ -766,7 +853,9 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
             final keyboardOpen = mq.viewInsets.bottom > 0;
 
             return Dialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
               insetPadding: EdgeInsets.symmetric(
                 horizontal: 16,
                 vertical: keyboardOpen ? 8 : 24,
@@ -774,7 +863,9 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 560),
                 child: SingleChildScrollView(
-                  padding: EdgeInsets.only(bottom: mq.viewInsets.bottom.clamp(0.0, 32.0)),
+                  padding: EdgeInsets.only(
+                    bottom: mq.viewInsets.bottom.clamp(0.0, 32.0),
+                  ),
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
                     child: Column(
@@ -783,7 +874,10 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                       children: [
                         Text(
                           dialogTitle ?? 'Ajouter un materiel',
-                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 18,
+                          ),
                         ),
                         const SizedBox(height: 12),
                         TextField(
@@ -806,7 +900,9 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                           Padding(
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             child: Center(
-                              child: Text(emptyMessage ?? 'Aucun materiel disponible.'),
+                              child: Text(
+                                emptyMessage ?? 'Aucun materiel disponible.',
+                              ),
                             ),
                           )
                         else
@@ -818,7 +914,8 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                             height: math.min(filtered.length * 72.0, 300.0),
                             child: ListView.separated(
                               itemCount: filtered.length,
-                              separatorBuilder: (context, index) => const SizedBox(height: 8),
+                              separatorBuilder: (context, index) =>
+                                  const SizedBox(height: 8),
                               itemBuilder: (context, index) {
                                 final material = filtered[index];
                                 return Material(
@@ -830,14 +927,21 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                                       material.reference?.isNotEmpty == true
                                           ? material.reference!
                                           : '--',
-                                      style: const TextStyle(fontWeight: FontWeight.w800),
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                      ),
                                     ),
                                     subtitle: Text(material.description),
-                                    trailing:
-                                        const Icon(Icons.add_circle_outline_rounded),
+                                    trailing: const Icon(
+                                      Icons.add_circle_outline_rounded,
+                                    ),
                                     onTap: () {
-                                      FocusManager.instance.primaryFocus?.unfocus();
-                                      Navigator.of(context, rootNavigator: true).pop(material);
+                                      FocusManager.instance.primaryFocus
+                                          ?.unfocus();
+                                      Navigator.of(
+                                        context,
+                                        rootNavigator: true,
+                                      ).pop(material);
                                     },
                                   ),
                                 );
@@ -884,7 +988,9 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
         materialOdooId: selectedMaterial.odooId,
         description: selectedMaterial.description,
         serie: selectedMaterial.reference ?? '',
-        quantite: quantity == quantity.roundToDouble() ? quantity.toInt().toString() : quantity.toString(),
+        quantite: quantity == quantity.roundToDouble()
+            ? quantity.toInt().toString()
+            : quantity.toString(),
       ),
     ];
 
@@ -974,11 +1080,17 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
     final startMinutes = (_normalizeForShift(start) * 60).round();
     final shiftEndMinutes = (_shiftEnd() * 60).round();
     final targetMinutes = startMinutes + minutesToAdd;
-    final boundedMinutes = targetMinutes > shiftEndMinutes ? shiftEndMinutes : targetMinutes;
+    final boundedMinutes = targetMinutes > shiftEndMinutes
+        ? shiftEndMinutes
+        : targetMinutes;
     return _formatHour(boundedMinutes / 60.0);
   }
 
-  String _adjustEndText(String startText, String currentEndText, int minutesDelta) {
+  String _adjustEndText(
+    String startText,
+    String currentEndText,
+    int minutesDelta,
+  ) {
     final start = _parseHour(startText);
     if (start == null) {
       return currentEndText;
@@ -990,11 +1102,15 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
     final shiftEndMinutes = (_shiftEnd() * 60).round();
     final baseMinutes = currentEnd != null
         ? (_normalizeForShift(currentEnd) * 60).round()
-        : (fallbackEnd != null ? (_normalizeForShift(fallbackEnd) * 60).round() : startMinutes);
+        : (fallbackEnd != null
+              ? (_normalizeForShift(fallbackEnd) * 60).round()
+              : startMinutes);
     final adjustedMinutes = baseMinutes + minutesDelta;
     final boundedMinutes = adjustedMinutes < startMinutes
         ? startMinutes
-        : (adjustedMinutes > shiftEndMinutes ? shiftEndMinutes : adjustedMinutes);
+        : (adjustedMinutes > shiftEndMinutes
+              ? shiftEndMinutes
+              : adjustedMinutes);
     return _formatHour(boundedMinutes / 60.0);
   }
 
@@ -1017,13 +1133,17 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
   }
 
   void _recomputeTotals(_ProductionTimeLogDraft log) {
-    final fromValue = double.tryParse(log.fromDe.text.trim().replaceAll(',', '.'));
+    final fromValue = double.tryParse(
+      log.fromDe.text.trim().replaceAll(',', '.'),
+    );
     final toValue = double.tryParse(log.toA.text.trim().replaceAll(',', '.'));
     if (fromValue == null || toValue == null) {
       log.total.text = '';
     } else {
       final delta = toValue - fromValue;
-      log.total.text = delta == delta.roundToDouble() ? delta.toInt().toString() : delta.toStringAsFixed(2);
+      log.total.text = delta == delta.roundToDouble()
+          ? delta.toInt().toString()
+          : delta.toStringAsFixed(2);
     }
 
     final start = _parseHour(log.heureDebut.text);
@@ -1065,9 +1185,12 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
     final safeIndex = startIndex < 0 ? 0 : startIndex;
     for (var index = safeIndex; index < _timeLogs.length; index++) {
       final log = _timeLogs[index];
-      log.heureDebut.text = index == 0 ? _shiftStartText() : _timeLogs[index - 1].heureFin.text.trim();
+      log.heureDebut.text = index == 0
+          ? _shiftStartText()
+          : _timeLogs[index - 1].heureFin.text.trim();
 
-      if (log.heureFin.text.trim().isEmpty || !_isEndAllowed(log.heureDebut.text, log.heureFin.text)) {
+      if (log.heureFin.text.trim().isEmpty ||
+          !_isEndAllowed(log.heureDebut.text, log.heureFin.text)) {
         log.heureFin.text = log.heureDebut.text;
       }
       _recomputeTotals(log);
@@ -1110,7 +1233,9 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
         context: context,
         builder: (dialogContext) {
           return AlertDialog(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
             title: const Text(
               'Erreur',
               style: TextStyle(fontWeight: FontWeight.w800),
@@ -1165,20 +1290,29 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
               Container(
                 decoration: BoxDecoration(
                   color: Colors.grey[200],
-                  border: const Border(bottom: BorderSide(color: Colors.black12)),
+                  border: const Border(
+                    bottom: BorderSide(color: Colors.black12),
+                  ),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     TextButton(
                       onPressed: () => Navigator.pop(context),
-                      child: const Text('Annuler', style: TextStyle(color: Colors.red)),
+                      child: const Text(
+                        'Annuler',
+                        style: TextStyle(color: Colors.red),
+                      ),
                     ),
                     TextButton(
-                      onPressed: () => Navigator.pop(context, allowedTimes[selectedIndex]),
+                      onPressed: () =>
+                          Navigator.pop(context, allowedTimes[selectedIndex]),
                       child: const Text(
                         'OK',
-                        style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          color: Colors.blue,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ],
@@ -1187,12 +1321,21 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
               Expanded(
                 child: CupertinoPicker(
                   itemExtent: 40,
-                  scrollController: FixedExtentScrollController(initialItem: selectedIndex),
+                  scrollController: FixedExtentScrollController(
+                    initialItem: selectedIndex,
+                  ),
                   onSelectedItemChanged: (index) {
                     selectedIndex = index;
                   },
                   children: allowedTimes
-                      .map((time) => Center(child: Text(time, style: const TextStyle(fontSize: 20))))
+                      .map(
+                        (time) => Center(
+                          child: Text(
+                            time,
+                            style: const TextStyle(fontSize: 20),
+                          ),
+                        ),
+                      )
                       .toList(),
                 ),
               ),
@@ -1211,13 +1354,21 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
       return;
     }
 
-    final selectedTask = await _openTaskDialog(category: category, tasks: tasks, nohType: nohType);
+    final selectedTask = await _openTaskDialog(
+      category: category,
+      tasks: tasks,
+      nohType: nohType,
+    );
 
     if (selectedTask == null || !mounted) {
       return;
     }
 
-    await _openEventEditor(category: category, task: selectedTask, nohType: nohType);
+    await _openEventEditor(
+      category: category,
+      task: selectedTask,
+      nohType: nohType,
+    );
   }
 
   Future<Task?> _openTaskDialog({
@@ -1236,12 +1387,14 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
             void applyFilter(String query) {
               final normalized = query.trim().toLowerCase();
               setDialogState(() {
-                filtered = tasks.where((task) {
-                  final haystack =
-                      '${task.libelle} ${task.numItem ?? ''} ${task.typeTache ?? ''} ${task.categorieActivity ?? ''}'
-                          .toLowerCase();
-                  return haystack.contains(normalized);
-                }).toList(growable: false);
+                filtered = tasks
+                    .where((task) {
+                      final haystack =
+                          '${task.libelle} ${task.numItem ?? ''} ${task.typeTache ?? ''} ${task.categorieActivity ?? ''}'
+                              .toLowerCase();
+                      return haystack.contains(normalized);
+                    })
+                    .toList(growable: false);
               });
             }
 
@@ -1252,7 +1405,9 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
             final keyboardOpen = mq.viewInsets.bottom > 0;
 
             return Dialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
               insetPadding: EdgeInsets.symmetric(
                 horizontal: 16,
                 vertical: keyboardOpen ? 8 : 24,
@@ -1260,7 +1415,9 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 560),
                 child: SingleChildScrollView(
-                  padding: EdgeInsets.only(bottom: mq.viewInsets.bottom.clamp(0.0, 32.0)),
+                  padding: EdgeInsets.only(
+                    bottom: mq.viewInsets.bottom.clamp(0.0, 32.0),
+                  ),
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
                     child: Column(
@@ -1271,7 +1428,10 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                           nohType == null
                               ? 'Activites $category'
                               : 'Activites $category - $nohType',
-                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 18,
+                          ),
                         ),
                         const SizedBox(height: 12),
                         TextField(
@@ -1293,14 +1453,17 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                         if (filtered.isEmpty)
                           const Padding(
                             padding: EdgeInsets.symmetric(vertical: 16),
-                            child: Center(child: Text('Aucune activite disponible.')),
+                            child: Center(
+                              child: Text('Aucune activite disponible.'),
+                            ),
                           )
                         else
                           SizedBox(
                             height: math.min(filtered.length * 72.0, 300.0),
                             child: ListView.separated(
                               itemCount: filtered.length,
-                              separatorBuilder: (context, index) => const SizedBox(height: 8),
+                              separatorBuilder: (context, index) =>
+                                  const SizedBox(height: 8),
                               itemBuilder: (context, index) {
                                 final task = filtered[index];
                                 return Material(
@@ -1308,9 +1471,20 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                                   borderRadius: BorderRadius.circular(16),
                                   child: ListTile(
                                     dense: true,
-                                    title: Text(task.libelle, style: const TextStyle(fontWeight: FontWeight.w700)),
-                                    subtitle: Text(task.numItem?.isNotEmpty == true ? 'Code ${task.numItem}' : 'Sans Code'),
-                                    trailing: const Icon(Icons.chevron_right_rounded),
+                                    title: Text(
+                                      task.libelle,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    subtitle: Text(
+                                      task.numItem?.isNotEmpty == true
+                                          ? 'Code ${task.numItem}'
+                                          : 'Sans Code',
+                                    ),
+                                    trailing: const Icon(
+                                      Icons.chevron_right_rounded,
+                                    ),
                                     onTap: () => Navigator.pop(context, task),
                                   ),
                                 );
@@ -1337,13 +1511,14 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
     );
   }
 
-
   Future<void> _openNohTypeSelector() async {
     final selectedType = await showDialog<String>(
       context: context,
       builder: (context) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
           title: const Text(
             'NOH',
             style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
@@ -1454,34 +1629,48 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
     if (log.heureDebut.text.trim().isEmpty) {
       log.heureDebut.text = _nextStartText();
     }
-    if (log.heureFin.text.trim().isEmpty || !_isEndAllowed(log.heureDebut.text, log.heureFin.text)) {
+    if (log.heureFin.text.trim().isEmpty ||
+        !_isEndAllowed(log.heureDebut.text, log.heureFin.text)) {
       log.heureFin.text = log.heureDebut.text;
     }
     _recomputeTotals(log);
 
     final effectiveNohType = category == 'NOH'
-        ? (nohType ?? (((task.categorieActivity ?? '').trim() == _drillingActivityCode) ? 'DRILLING' : 'AUTRES'))
+        ? (nohType ??
+              (((task.categorieActivity ?? '').trim() == _drillingActivityCode)
+                  ? 'DRILLING'
+                  : 'AUTRES'))
         : null;
     final taskCode = (task.numItem ?? '').trim();
     final isNohAutres = category == 'NOH' && effectiveNohType == 'AUTRES';
     final isDown = category == 'DOWN';
     final isStandby = category == 'STANDBY';
     final isDelay = category == 'DELAY';
-    final isDelayHoleFromToCode = isDelay && (taskCode == '40' || taskCode == '107');
-    final isDelayDistanceCode = isDelay && (taskCode == '50' || taskCode == '51');
+    final isDelayHoleFromToCode =
+        isDelay && (taskCode == '40' || taskCode == '107');
+    final isDelayDistanceCode =
+        isDelay && (taskCode == '50' || taskCode == '51');
     final isDelayChangeBit = isDelay && taskCode == '41';
     final isDelayChangeHammer = isDelay && taskCode == '42';
     final hideOperationalFields = isNohAutres || isDown || isStandby;
 
-    final showHoleField =
-        isDelay ? isDelayHoleFromToCode : !hideOperationalFields;
-    final showFromToFields =
-        isDelay ? isDelayHoleFromToCode : !hideOperationalFields;
+    final showHoleField = isDelay
+        ? isDelayHoleFromToCode
+        : !hideOperationalFields;
+    final showFromToFields = isDelay
+        ? isDelayHoleFromToCode
+        : !hideOperationalFields;
     final showDistanceField = isDelay
         ? isDelayDistanceCode
         : category != 'NOH' && !hideOperationalFields;
-    final useDialogEditor = const {'NOH', 'DOWN', 'DELAY', 'STANDBY'}.contains(category);
-    final isLockedDrillingFromField = category == 'NOH' && effectiveNohType == 'DRILLING' && showFromToFields;
+    final useDialogEditor = const {
+      'NOH',
+      'DOWN',
+      'DELAY',
+      'STANDBY',
+    }.contains(category);
+    final isLockedDrillingFromField =
+        category == 'NOH' && effectiveNohType == 'DRILLING' && showFromToFields;
     int? lastKnownToDim;
     var holeProgressInitialized = false;
 
@@ -1510,7 +1699,10 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
 
       final int? maxToDim;
       try {
-        maxToDim = await _maxToDimForHole(normalizedHole, excludeIndex: existingIndex);
+        maxToDim = await _maxToDimForHole(
+          normalizedHole,
+          excludeIndex: existingIndex,
+        );
       } catch (_) {
         // Peut arriver si le widget est dispose pendant l'await (ref invalide).
         return;
@@ -1527,7 +1719,9 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
         if (!mounted) return;
         setModalState(() {
           lastKnownToDim = maxToDim;
-          final shouldAutofill = forceAutofill || (autofillIfEmpty && log.fromDe.text.trim().isEmpty);
+          final shouldAutofill =
+              forceAutofill ||
+              (autofillIfEmpty && log.fromDe.text.trim().isEmpty);
           if (shouldAutofill) {
             if (maxToDim != null) {
               log.fromDe.text = maxToDim.toString();
@@ -1541,7 +1735,9 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
     }
 
     bool isStepEnabled(String field) {
-      final hasEnd = log.heureFin.text.trim().isNotEmpty && log.heureFin.text.trim() != log.heureDebut.text.trim();
+      final hasEnd =
+          log.heureFin.text.trim().isNotEmpty &&
+          log.heureFin.text.trim() != log.heureDebut.text.trim();
       final hasHole = log.holeNo.text.trim().isNotEmpty;
       final hasFrom = log.fromDe.text.trim().isNotEmpty;
       final hasTo = log.toA.text.trim().isNotEmpty;
@@ -1553,9 +1749,13 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
         case 'from':
           return hasEnd && (!showHoleField || hasHole);
         case 'to':
-          return hasEnd && (!showHoleField || hasHole) && (!showFromToFields || hasFrom);
+          return hasEnd &&
+              (!showHoleField || hasHole) &&
+              (!showFromToFields || hasFrom);
         case 'comment':
-          return hasEnd && (!showHoleField || hasHole) && (!showFromToFields || (hasFrom && hasTo));
+          return hasEnd &&
+              (!showHoleField || hasHole) &&
+              (!showFromToFields || (hasFrom && hasTo));
         default:
           return true;
       }
@@ -1596,7 +1796,10 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                     setModalState(() {});
                   }
 
-                  Future<void> openTaggedMaterial(String functionTag, String label) async {
+                  Future<void> openTaggedMaterial(
+                    String functionTag,
+                    String label,
+                  ) async {
                     final added = await _openQuickMaterialPicker(
                       requiredFunctionTag: functionTag,
                       dialogTitle: 'Ajouter un $label',
@@ -1609,7 +1812,9 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                   }
 
                   return AlertDialog(
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(24),
+                    ),
                     contentPadding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
                     content: SizedBox(
                       width: 620,
@@ -1621,9 +1826,14 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                             Row(
                               children: [
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 8,
+                                  ),
                                   decoration: BoxDecoration(
-                                    color: _categoryColor(category).withValues(alpha: 0.12),
+                                    color: _categoryColor(
+                                      category,
+                                    ).withValues(alpha: 0.12),
                                     borderRadius: BorderRadius.circular(999),
                                   ),
                                   child: Text(
@@ -1636,18 +1846,24 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                                 ),
                                 const Spacer(),
                                 IconButton(
-                                  onPressed: () => Navigator.pop(context, false),
+                                  onPressed: () =>
+                                      Navigator.pop(context, false),
                                   icon: const Icon(Icons.close_rounded),
                                 ),
                               ],
                             ),
                             Text(
                               task.libelle,
-                              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
+                              style: const TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.w800,
+                              ),
                             ),
                             const SizedBox(height: 6),
                             Text(
-                              task.numItem?.isNotEmpty == true ? 'Code ${task.numItem}' : 'Sans Code',
+                              task.numItem?.isNotEmpty == true
+                                  ? 'Code ${task.numItem}'
+                                  : 'Sans Code',
                               style: TextStyle(color: Colors.grey.shade700),
                             ),
                             const SizedBox(height: 20),
@@ -1664,7 +1880,9 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                                 Expanded(
                                   child: _buildTapField(
                                     label: 'Heure fin',
-                                    value: log.heureFin.text.trim().isEmpty ? '--:--' : log.heureFin.text.trim(),
+                                    value: log.heureFin.text.trim().isEmpty
+                                        ? '--:--'
+                                        : log.heureFin.text.trim(),
                                     onTap: pickEndTime,
                                     inlineLabel: true,
                                     enabled: true,
@@ -1677,12 +1895,58 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                               spacing: 8,
                               runSpacing: 8,
                               children: [
-                                _buildQuickTimeButton('+5', () => applyQuickEnd(_adjustEndText(log.heureDebut.text.trim(), log.heureFin.text.trim(), 5))),
-                                _buildQuickTimeButton('+10', () => applyQuickEnd(_adjustEndText(log.heureDebut.text.trim(), log.heureFin.text.trim(), 10))),
-                                _buildQuickTimeButton('+15', () => applyQuickEnd(_adjustEndText(log.heureDebut.text.trim(), log.heureFin.text.trim(), 15))),
-                                _buildQuickTimeButton('+30', () => applyQuickEnd(_adjustEndText(log.heureDebut.text.trim(), log.heureFin.text.trim(), 30))),
-                                _buildQuickTimeButton('Maintenant', () => applyQuickEnd(_nowWithinShiftText(log.heureDebut.text.trim()))),
-                                _buildQuickTimeButton('Fin shift', () => applyQuickEnd(_shiftEndText())),
+                                _buildQuickTimeButton(
+                                  '+5',
+                                  () => applyQuickEnd(
+                                    _adjustEndText(
+                                      log.heureDebut.text.trim(),
+                                      log.heureFin.text.trim(),
+                                      5,
+                                    ),
+                                  ),
+                                ),
+                                _buildQuickTimeButton(
+                                  '+10',
+                                  () => applyQuickEnd(
+                                    _adjustEndText(
+                                      log.heureDebut.text.trim(),
+                                      log.heureFin.text.trim(),
+                                      10,
+                                    ),
+                                  ),
+                                ),
+                                _buildQuickTimeButton(
+                                  '+15',
+                                  () => applyQuickEnd(
+                                    _adjustEndText(
+                                      log.heureDebut.text.trim(),
+                                      log.heureFin.text.trim(),
+                                      15,
+                                    ),
+                                  ),
+                                ),
+                                _buildQuickTimeButton(
+                                  '+30',
+                                  () => applyQuickEnd(
+                                    _adjustEndText(
+                                      log.heureDebut.text.trim(),
+                                      log.heureFin.text.trim(),
+                                      30,
+                                    ),
+                                  ),
+                                ),
+                                _buildQuickTimeButton(
+                                  'Maintenant',
+                                  () => applyQuickEnd(
+                                    _nowWithinShiftText(
+                                      log.heureDebut.text.trim(),
+                                    ),
+                                  ),
+                                ),
+                                _buildQuickTimeButton(
+                                  'Fin shift',
+                                  () => applyQuickEnd(_shiftEndText()),
+                                ),
                                 _buildQuickTimeButton(
                                   'Materiel',
                                   openMateriel,
@@ -1693,7 +1957,10 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                                 if (isDelayChangeBit)
                                   _buildQuickTimeButton(
                                     'Taillant',
-                                    () => openTaggedMaterial('Taillant', 'taillant'),
+                                    () => openTaggedMaterial(
+                                      'Taillant',
+                                      'taillant',
+                                    ),
                                     backgroundColor: const Color(0xFF2457C5),
                                     foregroundColor: Colors.white,
                                     borderColor: const Color(0xFF2457C5),
@@ -1701,7 +1968,10 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                                 if (isDelayChangeHammer)
                                   _buildQuickTimeButton(
                                     'Marteau',
-                                    () => openTaggedMaterial('Marteau', 'marteau'),
+                                    () => openTaggedMaterial(
+                                      'Marteau',
+                                      'marteau',
+                                    ),
                                     backgroundColor: const Color(0xFF2457C5),
                                     foregroundColor: Colors.white,
                                     borderColor: const Color(0xFF2457C5),
@@ -1714,73 +1984,108 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                                 if (showHoleField)
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         _buildTextField(
                                           controller: log.holeNo,
                                           label: 'Hole No.',
                                           onChanged: (_) {
                                             setModalState(() {});
-                                            refreshKnownHoleProgress(setModalState, forceAutofill: true);
+                                            refreshKnownHoleProgress(
+                                              setModalState,
+                                              forceAutofill: true,
+                                            );
                                           },
                                           inlineLabel: true,
                                           enabled: isStepEnabled('hole'),
                                         ),
                                         Builder(
                                           builder: (context) {
-                                            final suggestions = _holeSuggestions(log.holeNo.text.trim());
+                                            final suggestions =
+                                                _holeSuggestions(
+                                                  log.holeNo.text.trim(),
+                                                );
                                             if (!holeProgressInitialized &&
                                                 category == 'NOH' &&
-                                                effectiveNohType == 'DRILLING') {
+                                                effectiveNohType ==
+                                                    'DRILLING') {
                                               holeProgressInitialized = true;
                                               // Utiliser addPostFrameCallback (pas Future.microtask)
                                               // pour eviter que refreshKnownHoleProgress declenche un
                                               // setModalState pendant que ce Builder est encore en build.
-                                              WidgetsBinding.instance.addPostFrameCallback(
-                                                (_) => refreshKnownHoleProgress(
-                                                  setModalState,
-                                                  autofillIfEmpty: true,
-                                                ),
-                                              );
+                                              WidgetsBinding.instance
+                                                  .addPostFrameCallback(
+                                                    (_) =>
+                                                        refreshKnownHoleProgress(
+                                                          setModalState,
+                                                          autofillIfEmpty: true,
+                                                        ),
+                                                  );
                                             }
-                                            if (suggestions.isEmpty && lastKnownToDim == null) {
+                                            if (suggestions.isEmpty &&
+                                                lastKnownToDim == null) {
                                               return const SizedBox.shrink();
                                             }
                                             return Padding(
-                                              padding: const EdgeInsets.only(top: 8),
+                                              padding: const EdgeInsets.only(
+                                                top: 8,
+                                              ),
                                               child: Column(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
                                                 children: [
                                                   if (suggestions.isNotEmpty)
                                                     Wrap(
                                                       spacing: 8,
                                                       runSpacing: 8,
-                                                      children: suggestions.map((hole) {
-                                                        return ActionChip(
-                                                          label: Text(hole),
-                                                          onPressed: () {
-                                                            setModalState(() {
-                                                              log.holeNo.text = hole;
-                                                            });
-                                                            refreshKnownHoleProgress(
-                                                              setModalState,
-                                                              forceAutofill: true,
+                                                      children: suggestions
+                                                          .map((hole) {
+                                                            return ActionChip(
+                                                              label: Text(hole),
+                                                              onPressed: () {
+                                                                setModalState(() {
+                                                                  log
+                                                                          .holeNo
+                                                                          .text =
+                                                                      hole;
+                                                                });
+                                                                refreshKnownHoleProgress(
+                                                                  setModalState,
+                                                                  forceAutofill:
+                                                                      true,
+                                                                );
+                                                              },
+                                                              backgroundColor:
+                                                                  const Color(
+                                                                    0xFFF3F6FB,
+                                                                  ),
+                                                              side: const BorderSide(
+                                                                color: Color(
+                                                                  0xFFD7DFEA,
+                                                                ),
+                                                              ),
                                                             );
-                                                          },
-                                                          backgroundColor: const Color(0xFFF3F6FB),
-                                                          side: const BorderSide(color: Color(0xFFD7DFEA)),
-                                                        );
-                                                      }).toList(growable: false),
+                                                          })
+                                                          .toList(
+                                                            growable: false,
+                                                          ),
                                                     ),
                                                   if (lastKnownToDim != null)
                                                     Padding(
-                                                      padding: const EdgeInsets.only(top: 8),
+                                                      padding:
+                                                          const EdgeInsets.only(
+                                                            top: 8,
+                                                          ),
                                                       child: Text(
                                                         'Dernier Metttrage : $lastKnownToDim',
                                                         style: const TextStyle(
-                                                          color: Color(0xFF536177),
+                                                          color: Color(
+                                                            0xFF536177,
+                                                          ),
                                                           fontSize: 12,
-                                                          fontWeight: FontWeight.w700,
+                                                          fontWeight:
+                                                              FontWeight.w700,
                                                         ),
                                                       ),
                                                     ),
@@ -1792,20 +2097,29 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                                       ],
                                     ),
                                   ),
-                                if (showHoleField && showDistanceField) const SizedBox(width: 12),
+                                if (showHoleField && showDistanceField)
+                                  const SizedBox(width: 12),
                                 if (showDistanceField)
                                   Expanded(
                                     child: _buildTextField(
                                       controller: log.distance,
                                       label: 'Distance',
-                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
+                                      keyboardType:
+                                          const TextInputType.numberWithOptions(
+                                            decimal: true,
+                                          ),
+                                      inputFormatters: [
+                                        FilteringTextInputFormatter.allow(
+                                          RegExp(r'[0-9.,]'),
+                                        ),
+                                      ],
                                       inlineLabel: true,
                                     ),
                                   ),
                               ],
                             ),
-                            if (showHoleField || showDistanceField) const SizedBox(height: 16),
+                            if (showHoleField || showDistanceField)
+                              const SizedBox(height: 16),
                             if (showFromToFields)
                               Row(
                                 children: [
@@ -1813,9 +2127,18 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                                     child: _buildTextField(
                                       controller: log.fromDe,
                                       label: 'De',
-                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
-                                      onChanged: (_) => setModalState(() => _recomputeTotals(log)),
+                                      keyboardType:
+                                          const TextInputType.numberWithOptions(
+                                            decimal: true,
+                                          ),
+                                      inputFormatters: [
+                                        FilteringTextInputFormatter.allow(
+                                          RegExp(r'[0-9.,]'),
+                                        ),
+                                      ],
+                                      onChanged: (_) => setModalState(
+                                        () => _recomputeTotals(log),
+                                      ),
                                       inlineLabel: true,
                                       enabled: isStepEnabled('from'),
                                       readOnly: isLockedDrillingFromField,
@@ -1826,9 +2149,18 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                                     child: _buildTextField(
                                       controller: log.toA,
                                       label: 'A',
-                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
-                                      onChanged: (_) => setModalState(() => _recomputeTotals(log)),
+                                      keyboardType:
+                                          const TextInputType.numberWithOptions(
+                                            decimal: true,
+                                          ),
+                                      inputFormatters: [
+                                        FilteringTextInputFormatter.allow(
+                                          RegExp(r'[0-9.,]'),
+                                        ),
+                                      ],
+                                      onChanged: (_) => setModalState(
+                                        () => _recomputeTotals(log),
+                                      ),
                                       inlineLabel: true,
                                       enabled: isStepEnabled('to'),
                                     ),
@@ -1848,10 +2180,13 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                               children: [
                                 Expanded(
                                   child: OutlinedButton(
-                                    onPressed: () => Navigator.pop(context, false),
+                                    onPressed: () =>
+                                        Navigator.pop(context, false),
                                     child: const Text('Annuler'),
                                     style: OutlinedButton.styleFrom(
-                                      padding: const EdgeInsets.symmetric(vertical: 23)
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 23,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -1859,39 +2194,66 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                                 Expanded(
                                   child: FilledButton(
                                     onPressed: () async {
-                                      if (showHoleField && log.holeNo.text.trim().isEmpty) {
-                                        _showMessage('Hole No. est obligatoire.');
+                                      if (showHoleField &&
+                                          log.holeNo.text.trim().isEmpty) {
+                                        _showMessage(
+                                          'Hole No. est obligatoire.',
+                                        );
                                         return;
                                       }
-                                      if (showFromToFields && log.fromDe.text.trim().isEmpty) {
+                                      if (showFromToFields &&
+                                          log.fromDe.text.trim().isEmpty) {
                                         _showMessage('De est obligatoire.');
                                         return;
                                       }
-                                      if (showFromToFields && log.toA.text.trim().isEmpty) {
+                                      if (showFromToFields &&
+                                          log.toA.text.trim().isEmpty) {
                                         _showMessage('A est obligatoire.');
                                         return;
                                       }
-                                      if (showDistanceField && log.distance.text.trim().isEmpty) {
-                                        _showMessage('Distance est obligatoire.');
+                                      if (showDistanceField &&
+                                          log.distance.text.trim().isEmpty) {
+                                        _showMessage(
+                                          'Distance est obligatoire.',
+                                        );
                                         return;
                                       }
                                       if (showFromToFields) {
-                                        final fromValue = double.tryParse(log.fromDe.text.trim().replaceAll(',', '.'));
-                                        final toValue = double.tryParse(log.toA.text.trim().replaceAll(',', '.'));
-                                        if (fromValue == null || toValue == null) {
-                                          _showMessage('De et A doivent etre numeriques.');
+                                        final fromValue = double.tryParse(
+                                          log.fromDe.text.trim().replaceAll(
+                                            ',',
+                                            '.',
+                                          ),
+                                        );
+                                        final toValue = double.tryParse(
+                                          log.toA.text.trim().replaceAll(
+                                            ',',
+                                            '.',
+                                          ),
+                                        );
+                                        if (fromValue == null ||
+                                            toValue == null) {
+                                          _showMessage(
+                                            'De et A doivent etre numeriques.',
+                                          );
                                           return;
                                         }
                                         if (toValue <= fromValue) {
-                                          _showMessage('A doit etre strictement superieur a De.');
+                                          _showMessage(
+                                            'A doit etre strictement superieur a De.',
+                                          );
                                           return;
                                         }
-                                        if (category == 'NOH' && effectiveNohType == 'DRILLING' && log.holeNo.text.trim().isNotEmpty) {
-                                          final maxToDim = await _maxToDimForHole(
-                                            log.holeNo.text.trim(),
-                                            excludeIndex: existingIndex,
-                                          );
-                                          if (maxToDim != null && fromValue < maxToDim) {
+                                        if (category == 'NOH' &&
+                                            effectiveNohType == 'DRILLING' &&
+                                            log.holeNo.text.trim().isNotEmpty) {
+                                          final maxToDim =
+                                              await _maxToDimForHole(
+                                                log.holeNo.text.trim(),
+                                                excludeIndex: existingIndex,
+                                              );
+                                          if (maxToDim != null &&
+                                              fromValue < maxToDim) {
                                             _showMessage(
                                               'Pour le hole ${log.holeNo.text.trim()}, De doit etre superieur ou egal a $maxToDim.',
                                             );
@@ -1899,31 +2261,51 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                                           }
                                         }
                                       }
-                                      if (log.heureDebut.text.trim() == log.heureFin.text.trim()) {
-                                        _showMessage("Heure fin doit etre differente de l'heure debut.");
+                                      if (log.heureDebut.text.trim() ==
+                                          log.heureFin.text.trim()) {
+                                        _showMessage(
+                                          "Heure fin doit etre differente de l'heure debut.",
+                                        );
                                         return;
                                       }
-                                      if (!_isEndAllowed(log.heureDebut.text.trim(), log.heureFin.text.trim())) {
+                                      if (!_isEndAllowed(
+                                        log.heureDebut.text.trim(),
+                                        log.heureFin.text.trim(),
+                                      )) {
                                         _showMessage(
                                           'Heure fin hors plage du shift. Reste entre ${_shiftStartText()} et ${_shiftEndText()}.',
                                         );
                                         return;
                                       }
-                                      if (isDelayChangeBit && !_hasRequiredTaggedMaterial('Taillant')) {
-                                        _showMessage('Ajoute un taillant avant de valider cette activite.');
+                                      if (isDelayChangeBit &&
+                                          !_hasRequiredTaggedMaterial(
+                                            'Taillant',
+                                          )) {
+                                        _showMessage(
+                                          'Ajoute un taillant avant de valider cette activite.',
+                                        );
                                         return;
                                       }
-                                      if (isDelayChangeHammer && !_hasRequiredTaggedMaterial('Marteau')) {
-                                        _showMessage('Ajoute un marteau avant de valider cette activite.');
+                                      if (isDelayChangeHammer &&
+                                          !_hasRequiredTaggedMaterial(
+                                            'Marteau',
+                                          )) {
+                                        _showMessage(
+                                          'Ajoute un marteau avant de valider cette activite.',
+                                        );
                                         return;
                                       }
                                       Navigator.pop(context, true);
                                     },
                                     style: FilledButton.styleFrom(
                                       backgroundColor: _categoryColor(category),
-                                      padding: const EdgeInsets.symmetric(vertical: 23)
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 23,
+                                      ),
                                     ),
-                                    child: Text(isEditing ? 'Mettre a jour' : 'Valider'),
+                                    child: Text(
+                                      isEditing ? 'Mettre a jour' : 'Valider',
+                                    ),
                                   ),
                                 ),
                               ],
@@ -1967,7 +2349,9 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                     ),
                     decoration: const BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                      borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(28),
+                      ),
                     ),
                     child: SafeArea(
                       top: false,
@@ -1979,9 +2363,14 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                             Row(
                               children: [
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 8,
+                                  ),
                                   decoration: BoxDecoration(
-                                    color: _categoryColor(category).withValues(alpha: 0.12),
+                                    color: _categoryColor(
+                                      category,
+                                    ).withValues(alpha: 0.12),
                                     borderRadius: BorderRadius.circular(999),
                                   ),
                                   child: Text(
@@ -1994,29 +2383,42 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                                 ),
                                 const Spacer(),
                                 IconButton(
-                                  onPressed: () => Navigator.pop(context, false),
+                                  onPressed: () =>
+                                      Navigator.pop(context, false),
                                   icon: const Icon(Icons.close_rounded),
                                 ),
                               ],
                             ),
                             Text(
                               task.libelle,
-                              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
+                              style: const TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.w800,
+                              ),
                             ),
                             const SizedBox(height: 6),
                             Text(
-                              task.numItem?.isNotEmpty == true ? 'Code ${task.numItem}' : 'Sans Code',
+                              task.numItem?.isNotEmpty == true
+                                  ? 'Code ${task.numItem}'
+                                  : 'Sans Code',
                               style: TextStyle(color: Colors.grey.shade700),
                             ),
                             const SizedBox(height: 20),
                             Row(
                               children: [
-                                Expanded(child: _buildReadonlyField('Heure debut', log.heureDebut.text.trim())),
+                                Expanded(
+                                  child: _buildReadonlyField(
+                                    'Heure debut',
+                                    log.heureDebut.text.trim(),
+                                  ),
+                                ),
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: _buildTapField(
                                     label: 'Heure fin',
-                                    value: log.heureFin.text.trim().isEmpty ? '--:--' : log.heureFin.text.trim(),
+                                    value: log.heureFin.text.trim().isEmpty
+                                        ? '--:--'
+                                        : log.heureFin.text.trim(),
                                     onTap: pickEndTime,
                                   ),
                                 ),
@@ -2032,19 +2434,28 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                                       label: 'Hole No.',
                                     ),
                                   ),
-                                if (showHoleField && showDistanceField) const SizedBox(width: 12),
+                                if (showHoleField && showDistanceField)
+                                  const SizedBox(width: 12),
                                 if (showDistanceField)
                                   Expanded(
                                     child: _buildTextField(
                                       controller: log.distance,
                                       label: 'Distance',
-                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
+                                      keyboardType:
+                                          const TextInputType.numberWithOptions(
+                                            decimal: true,
+                                          ),
+                                      inputFormatters: [
+                                        FilteringTextInputFormatter.allow(
+                                          RegExp(r'[0-9.,]'),
+                                        ),
+                                      ],
                                     ),
                                   ),
                               ],
                             ),
-                            if (showHoleField || showDistanceField) const SizedBox(height: 16),
+                            if (showHoleField || showDistanceField)
+                              const SizedBox(height: 16),
                             if (showFromToFields)
                               Row(
                                 children: [
@@ -2052,9 +2463,18 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                                     child: _buildTextField(
                                       controller: log.fromDe,
                                       label: 'De',
-                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
-                                      onChanged: (_) => setModalState(() => _recomputeTotals(log)),
+                                      keyboardType:
+                                          const TextInputType.numberWithOptions(
+                                            decimal: true,
+                                          ),
+                                      inputFormatters: [
+                                        FilteringTextInputFormatter.allow(
+                                          RegExp(r'[0-9.,]'),
+                                        ),
+                                      ],
+                                      onChanged: (_) => setModalState(
+                                        () => _recomputeTotals(log),
+                                      ),
                                       readOnly: isLockedDrillingFromField,
                                     ),
                                   ),
@@ -2063,9 +2483,18 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                                     child: _buildTextField(
                                       controller: log.toA,
                                       label: 'A',
-                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
-                                      onChanged: (_) => setModalState(() => _recomputeTotals(log)),
+                                      keyboardType:
+                                          const TextInputType.numberWithOptions(
+                                            decimal: true,
+                                          ),
+                                      inputFormatters: [
+                                        FilteringTextInputFormatter.allow(
+                                          RegExp(r'[0-9.,]'),
+                                        ),
+                                      ],
+                                      onChanged: (_) => setModalState(
+                                        () => _recomputeTotals(log),
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -2081,7 +2510,8 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                               children: [
                                 Expanded(
                                   child: OutlinedButton(
-                                    onPressed: () => Navigator.pop(context, false),
+                                    onPressed: () =>
+                                        Navigator.pop(context, false),
                                     child: const Text('Annuler'),
                                   ),
                                 ),
@@ -2089,7 +2519,10 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                                 Expanded(
                                   child: FilledButton(
                                     onPressed: () {
-                                      if (!_isEndAllowed(log.heureDebut.text.trim(), log.heureFin.text.trim())) {
+                                      if (!_isEndAllowed(
+                                        log.heureDebut.text.trim(),
+                                        log.heureFin.text.trim(),
+                                      )) {
                                         _showMessage(
                                           'Heure fin hors plage du shift. Reste entre ${_shiftStartText()} et ${_shiftEndText()}.',
                                         );
@@ -2100,7 +2533,9 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                                     style: FilledButton.styleFrom(
                                       backgroundColor: _categoryColor(category),
                                     ),
-                                    child: Text(isEditing ? 'Mettre a jour' : 'Valider'),
+                                    child: Text(
+                                      isEditing ? 'Mettre a jour' : 'Valider',
+                                    ),
                                   ),
                                 ),
                               ],
@@ -2159,7 +2594,9 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
     _openEventEditor(
       category: log.category,
       task: task,
-      nohType: log.category == 'NOH' && (task.categorieActivity ?? '').trim() == _drillingActivityCode
+      nohType:
+          log.category == 'NOH' &&
+              (task.categorieActivity ?? '').trim() == _drillingActivityCode
           ? 'DRILLING'
           : 'AUTRES',
       existingLog: log,
@@ -2179,21 +2616,21 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
   }
 
   void _goToPersonnel() {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const DrillingStaffForm()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const DrillingStaffForm()));
   }
 
   void _goToMateriel() {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const DrillingConsumableForm()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const DrillingConsumableForm()));
   }
 
   void _goToFuel() {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const DrillingFuelForm()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const DrillingFuelForm()));
   }
 
   void _goToRecap() {
@@ -2201,9 +2638,9 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
       _showMessage('Ajoute au moins une activite avant le recapitulatif.');
       return;
     }
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const RecapScreen()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const RecapScreen()));
   }
 
   Color _categoryColor(String category) {
@@ -2220,7 +2657,11 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
     }
   }
 
-  Widget _buildReadonlyField(String label, String value, {bool inlineLabel = false}) {
+  Widget _buildReadonlyField(
+    String label,
+    String value, {
+    bool inlineLabel = false,
+  }) {
     if (inlineLabel) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -2233,13 +2674,14 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
           children: [
             Text(
               label,
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF64748B),
+              ),
             ),
             const SizedBox(height: 4),
-            Text(
-              value,
-              style: const TextStyle(fontWeight: FontWeight.w700),
-            ),
+            Text(value, style: const TextStyle(fontWeight: FontWeight.w700)),
           ],
         ),
       );
@@ -2297,20 +2739,29 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                   children: [
                     Text(
                       label,
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF64748B)),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF64748B),
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       value,
                       style: TextStyle(
                         fontWeight: FontWeight.w700,
-                        color: enabled ? Colors.black87 : const Color(0xFF9CA3AF),
+                        color: enabled
+                            ? Colors.black87
+                            : const Color(0xFF9CA3AF),
                       ),
                     ),
                   ],
                 ),
               ),
-              Icon(Icons.schedule_rounded, color: enabled ? null : const Color(0xFF9CA3AF)),
+              Icon(
+                Icons.schedule_rounded,
+                color: enabled ? null : const Color(0xFF9CA3AF),
+              ),
             ],
           ),
         ),
@@ -2359,10 +2810,7 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
     return ActionChip(
       label: Text(
         label,
-        style: TextStyle(
-          fontWeight: FontWeight.w700,
-          color: foregroundColor,
-        ),
+        style: TextStyle(fontWeight: FontWeight.w700, color: foregroundColor),
       ),
       onPressed: onTap,
       backgroundColor: backgroundColor,
@@ -2403,7 +2851,7 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
-            borderSide: const BorderSide(color: Color(0xFF1E3A5F)),
+            borderSide: const BorderSide(color: _accentOrange, width: 1.6),
           ),
         ),
       );
@@ -2433,7 +2881,7 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(color: Color(0xFF1E3A5F)),
+              borderSide: const BorderSide(color: _accentOrange, width: 1.6),
             ),
           ),
         ),
@@ -2447,14 +2895,14 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF203A63), Color(0xFF162A46)],
+          colors: [_designNavy, _designNavyLight],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(28),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x22000000),
+            color: Color(0x2213233F),
             blurRadius: 22,
             offset: Offset(0, 14),
           ),
@@ -2463,12 +2911,36 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Row(
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: const BoxDecoration(
+                  color: _accentOrange,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'SHIFT EN COURS',
+                style: TextStyle(
+                  color: _accentOrange,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.4,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
           const Text(
             'Feuille de production',
             style: TextStyle(
               color: Colors.white,
               fontSize: 24,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.3,
             ),
           ),
           const SizedBox(height: 16),
@@ -2476,8 +2948,17 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
             spacing: 10,
             runSpacing: 10,
             children: [
-              _buildInfoChip(Icons.nightlight_round, widget.quart),
-              _buildInfoChip(Icons.precision_manufacturing_outlined, _foreuse?.name ?? '-'),
+              _buildInfoChip(
+                _isNightShift
+                    ? Icons.nightlight_round
+                    : Icons.wb_sunny_outlined,
+                _quartShort,
+                highlight: true,
+              ),
+              _buildInfoChip(
+                Icons.precision_manufacturing_outlined,
+                _foreuse?.name ?? '-',
+              ),
               _buildInfoChip(Icons.place_outlined, _location?.name ?? '-'),
               _buildInfoChip(Icons.calendar_today_outlined, widget.dateText),
             ],
@@ -2488,6 +2969,7 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
             ),
             child: Row(
               children: [
@@ -2495,12 +2977,17 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                   child: _buildShiftMetric('Projet', _project?.name ?? '-'),
                 ),
                 Expanded(
-                  child: _buildShiftMetric('Shift', '${_shiftStartText()} -> ${_shiftEndText()}'),
+                  child: _buildShiftMetric(
+                    'Shift',
+                    '${_shiftStartText()} -> ${_shiftEndText()}',
+                  ),
                 ),
                 Expanded(
                   child: _buildShiftMetric(
                     'Derniere activité',
-                    _timeLogs.isEmpty ? _shiftStartText() : _timeLogs.last.heureFin.text.trim(),
+                    _timeLogs.isEmpty
+                        ? _shiftStartText()
+                        : _timeLogs.last.heureFin.text.trim(),
                   ),
                 ),
               ],
@@ -2511,22 +2998,32 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
     );
   }
 
-  Widget _buildInfoChip(IconData icon, String text) {
+  Widget _buildInfoChip(IconData icon, String text, {bool highlight = false}) {
+    final foreground = highlight ? _designNavy : Colors.white;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
+        color: highlight ? _accentOrange : Colors.white.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+        border: Border.all(
+          color: highlight
+              ? _accentOrange
+              : Colors.white.withValues(alpha: 0.18),
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 18, color: Colors.white),
+          Icon(icon, size: 18, color: highlight ? _designNavy : Colors.white),
           const SizedBox(width: 8),
-          Text(
-            text,
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+          Flexible(
+            child: Text(
+              text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: foreground, fontWeight: FontWeight.w800),
+            ),
           ),
         ],
       ),
@@ -2550,7 +3047,10 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
           const SizedBox(height: 6),
           Text(
             value,
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ],
       ),
@@ -2588,8 +3088,13 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
       );
     }
 
-    final loggedDuration = segments.fold<double>(0, (sum, segment) => sum + segment.durationHours);
-    final remaining = shiftDuration > loggedDuration ? shiftDuration - loggedDuration : 0.0;
+    final loggedDuration = segments.fold<double>(
+      0,
+      (sum, segment) => sum + segment.durationHours,
+    );
+    final remaining = shiftDuration > loggedDuration
+        ? shiftDuration - loggedDuration
+        : 0.0;
 
     if (segments.isEmpty && remaining <= 0) {
       return const SizedBox.shrink();
@@ -2613,11 +3118,15 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
         children: [
           Row(
             children: [
-              const Text(
-                'Progression des activites',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+              const Expanded(
+                child: Text(
+                  'Progression des activites',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+                ),
               ),
-              const Spacer(),
+              const SizedBox(width: 8),
               Text(
                 shiftDuration > 0
                     ? '${_formatDuration(loggedDuration)} / ${_formatDuration(shiftDuration)}'
@@ -2641,7 +3150,8 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                     Expanded(
                       flex: toFlex(segment.durationHours),
                       child: Tooltip(
-                        message: '${segment.label} (${_formatDuration(segment.durationHours)})',
+                        message:
+                            '${segment.label} (${_formatDuration(segment.durationHours)})',
                         waitDuration: const Duration(milliseconds: 200),
                         child: Container(
                           height: double.infinity,
@@ -2666,14 +3176,17 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 10),
-          // Wrap(
-          //   spacing: 14,
-          //   runSpacing: 6,
-          //   children: [
-          //     for (final category in _categories) _buildProgressLegendItem(category),
-          //   ],
-          // ),
+          if (_timeLogs.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 14,
+              runSpacing: 6,
+              children: [
+                for (final category in _categories)
+                  _buildProgressLegendItem(category),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -2694,86 +3207,119 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
         const SizedBox(width: 6),
         Text(
           category,
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF475569)),
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF475569),
+          ),
         ),
       ],
     );
   }
 
   Widget _buildCategoryButtons() {
-    return Row(
-      children: List.generate(_categories.length, (index) {
-        final category = _categories[index];
-        final count = _timeLogs.where((row) => row.category == category).length;
-        return Expanded(
-          child: Padding(
-            padding: EdgeInsets.only(right: index == _categories.length - 1 ? 0 : 10),
-            child: InkWell(
-              onTap: () {
-                if (category == 'NOH') {
-                  _openNohTypeSelector();
-                  return;
-                }
-                _openTaskSelector(category);
-              },
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const spacing = 10.0;
+        final columns = constraints.maxWidth >= 560 ? 4 : 2;
+        final itemWidth =
+            (constraints.maxWidth - spacing * (columns - 1)) / columns;
+
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children: [
+            for (final category in _categories)
+              SizedBox(width: itemWidth, child: _buildCategoryCard(category)),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildCategoryCard(String category) {
+    final count = _timeLogs.where((row) => row.category == category).length;
+    final accent = _categoryColor(category);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          if (category == 'NOH') {
+            _openNohTypeSelector();
+            return;
+          }
+          _openTaskSelector(category);
+        },
+        borderRadius: BorderRadius.circular(18),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 104),
+          child: Ink(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
               borderRadius: BorderRadius.circular(18),
-              child: Ink(
-                decoration: BoxDecoration(
-                  color: _categoryColor(category),
-                  borderRadius: BorderRadius.circular(18),
-                  boxShadow: [
-                    BoxShadow(
-                      color: _categoryColor(category).withValues(alpha: 0.18),
-                      blurRadius: 12,
-                      offset: const Offset(0, 6),
+              border: Border.all(color: _border),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x0F13233F),
+                  blurRadius: 10,
+                  offset: Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 28,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        color: accent.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(Icons.bolt_rounded, color: accent, size: 16),
+                    ),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF3F6FB),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        '$count',
+                        style: const TextStyle(
+                          color: _muted,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
                     ),
                   ],
                 ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            width: 26,
-                            height: 26,
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.18),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const Icon(Icons.bolt_rounded, color: Colors.white, size: 14),
-                          ),
-                          const Spacer(),
-                          Text(
-                            '$count',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        category,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ],
+                const SizedBox(height: 10),
+                Text(
+                  _categoryLabel(category),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: _textDark,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
-              ),
+              ],
             ),
           ),
-        );
-      }),
+        ),
+      ),
     );
   }
 
@@ -2829,9 +3375,14 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
-                      color: _categoryColor(log.category).withValues(alpha: 0.12),
+                      color: _categoryColor(
+                        log.category,
+                      ).withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(999),
                     ),
                     child: Text(
@@ -2854,25 +3405,36 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                   ),
                   IconButton(
                     onPressed: () => _removeLog(index),
-                    icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
+                    icon: const Icon(
+                      Icons.delete_outline_rounded,
+                      color: Colors.redAccent,
+                    ),
                   ),
                 ],
               ),
               const SizedBox(height: 12),
               Text(
                 task?.libelle ?? 'Activite introuvable',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                ),
               ),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  if (log.codeTache.text.trim().isNotEmpty) _smallMeta('Code ${log.codeTache.text.trim()}'),
-                  if (log.holeNo.text.trim().isNotEmpty) _smallMeta('Hole NO : ${log.holeNo.text.trim()}'),
-                  if (log.duree.text.trim().isNotEmpty) _smallMeta('Duree : ${log.duree.text.trim()}'),
-                  if (log.total.text.trim().isNotEmpty) _smallMeta('Total : ${log.total.text.trim()}'),
-                  if (log.distance.text.trim().isNotEmpty) _smallMeta('Dist.: ${log.distance.text.trim()}'),
+                  if (log.codeTache.text.trim().isNotEmpty)
+                    _smallMeta('Code ${log.codeTache.text.trim()}'),
+                  if (log.holeNo.text.trim().isNotEmpty)
+                    _smallMeta('Hole NO : ${log.holeNo.text.trim()}'),
+                  if (log.duree.text.trim().isNotEmpty)
+                    _smallMeta('Duree : ${log.duree.text.trim()}'),
+                  if (log.total.text.trim().isNotEmpty)
+                    _smallMeta('Total : ${log.total.text.trim()}'),
+                  if (log.distance.text.trim().isNotEmpty)
+                    _smallMeta('Dist.: ${log.distance.text.trim()}'),
                 ],
               ),
               if (log.commentaire.text.trim().isNotEmpty) ...[
@@ -2904,6 +3466,15 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
   }
 
   Widget _buildFooterActions() {
+    final secondaryStyle = OutlinedButton.styleFrom(
+      backgroundColor: Colors.white,
+      foregroundColor: _designNavy,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+      textStyle: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700),
+      side: const BorderSide(color: _border),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+    );
+
     return Column(
       children: [
         Row(
@@ -2911,28 +3482,18 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
             Expanded(
               child: OutlinedButton.icon(
                 onPressed: () => Navigator.of(context).pop(),
-                icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 16),
+                icon: const Icon(Icons.arrow_back_rounded, size: 18),
                 label: const Text('Contexte'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 23),
-                  textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-                  side: const BorderSide(color: Color(0xFFCBD5E1)),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                ),
+                style: secondaryStyle,
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: FilledButton.icon(
+              child: OutlinedButton.icon(
                 onPressed: _goToPersonnel,
-                icon: const Icon(Icons.groups_2_outlined),
+                icon: const Icon(Icons.groups_2_outlined, size: 18),
                 label: const Text('Personnel'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF1E3A5F),
-                  padding: const EdgeInsets.symmetric(vertical: 23),
-                  textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                ),
+                style: secondaryStyle,
               ),
             ),
           ],
@@ -2943,28 +3504,18 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
             Expanded(
               child: OutlinedButton.icon(
                 onPressed: _goToMateriel,
-                icon: const Icon(Icons.inventory_2_outlined),
+                icon: const Icon(Icons.inventory_2_outlined, size: 18),
                 label: const Text('Materiel'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 23),
-                  textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-                  side: const BorderSide(color: Color(0xFFCBD5E1)),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                ),
+                style: secondaryStyle,
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: OutlinedButton.icon(
                 onPressed: _goToFuel,
-                icon: const Icon(Icons.local_gas_station_outlined),
+                icon: const Icon(Icons.local_gas_station_outlined, size: 18),
                 label: const Text('Equipement Auxilliere'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 23),
-                  textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-                  side: const BorderSide(color: Color(0xFFCBD5E1)),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                ),
+                style: secondaryStyle,
               ),
             ),
           ],
@@ -2974,13 +3525,30 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
           width: double.infinity,
           child: FilledButton.icon(
             onPressed: _goToRecap,
-            icon: const Icon(Icons.fact_check_outlined),
+            icon: const Icon(Icons.fact_check_outlined, size: 20),
             label: const Text('Recapitulatif'),
             style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFFE58A1F),
-              padding: const EdgeInsets.symmetric(vertical: 25),
-              textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+              backgroundColor: _accentOrange,
+              foregroundColor: _designNavy,
+              padding: const EdgeInsets.symmetric(vertical: 18),
+              textStyle: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        const Center(
+          child: Text(
+            'Étape 2 sur 2 · puis récapitulatif',
+            style: TextStyle(
+              color: _muted,
+              fontSize: 11.5,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ),
@@ -2990,15 +3558,101 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isWide = MediaQuery.sizeOf(context).width >= 520;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF4F7FB),
       appBar: AppBar(
-        title: const Text(
-          'Production',
-          style: TextStyle(fontWeight: FontWeight.w800),
-        ),
-        backgroundColor: const Color(0xFFF4F7FB),
+        backgroundColor: _softBg,
         elevation: 0,
+        scrolledUnderElevation: 0,
+        centerTitle: false,
+        titleSpacing: 6,
+        leadingWidth: 68,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 12),
+          child: IconButton(
+            tooltip: 'Retour',
+            onPressed: () => Navigator.of(context).maybePop(),
+            style: IconButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: _designNavy,
+              side: const BorderSide(color: Color(0xFFE3E8F0)),
+            ),
+            icon: const Icon(Icons.arrow_back_rounded, size: 20),
+          ),
+        ),
+        title: Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE3E8F0)),
+              ),
+              child: Image.asset(
+                'assets/images/aurora_logo.png',
+                fit: BoxFit.contain,
+              ),
+            ),
+            const SizedBox(width: 10),
+            const Flexible(
+              child: Text(
+                'Production',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: _textDark,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: _accentOrange,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      _isNightShift
+                          ? Icons.nightlight_round
+                          : Icons.wb_sunny_outlined,
+                      size: 14,
+                      color: _designNavy,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      isWide
+                          ? '$_quartShort · ${widget.dateText}'
+                          : _quartShort,
+                      style: const TextStyle(
+                        color: _designNavy,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -3015,7 +3669,10 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                         const SizedBox(height: 24),
                         const Text(
                           'Categories d\'activite',
-                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                         const SizedBox(height: 14),
                         _buildActivityProgressBar(),
@@ -3023,7 +3680,10 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                         const SizedBox(height: 24),
                         const Text(
                           'Evenements saisis',
-                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                         const SizedBox(height: 14),
                         _buildTimelineList(),
