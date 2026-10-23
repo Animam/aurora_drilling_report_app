@@ -82,10 +82,50 @@ class _FeuilleListScreenState extends ConsumerState<FeuilleListScreen> {
     );
   }
 
-  Future<void> _deleteDraftFeuille(int feuilleLocalId) async {
+  Future<void> _deleteFeuille(int feuilleLocalId) async {
     final db = ref.read(appDatabaseProvider);
     await db.deleteFeuilleCascade(feuilleLocalId);
     await _load();
+  }
+
+  Future<void> _confirmDeleteFeuille(Feuille item) async {
+    final isDraft = item.syncStatus == 'draft';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text(
+            'Supprimer la feuille',
+            style: TextStyle(fontWeight: FontWeight.w800),
+          ),
+          content: Text(
+            isDraft
+                ? 'Ce brouillon sera definitivement supprime de cet appareil. '
+                    'Cette action est irreversible.'
+                : 'Cette feuille en attente de synchronisation sera definitivement '
+                    'supprimee de cet appareil et ne sera jamais synchronisee. '
+                    'Cette action est irreversible.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Annuler'),
+            ),
+            FilledButton.icon(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              icon: const Icon(Icons.delete_outline_rounded, size: 18),
+              label: const Text('Supprimer'),
+              style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed == true && mounted) {
+      await _deleteFeuille(item.localId);
+    }
   }
 
   Widget _buildFeuilleCard(Feuille item) {
@@ -167,13 +207,7 @@ class _FeuilleListScreenState extends ConsumerState<FeuilleListScreen> {
                           ),
                         ),
                       ),
-                    if (isDraft)
-                      IconButton(
-                        onPressed: () => _deleteDraftFeuille(item.localId),
-                        icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFB3261E)),
-                        tooltip: 'Supprimer',
-                      )
-                    else if (isOpening)
+                    if (isOpening)
                       const SizedBox(
                         width: 22,
                         height: 22,
@@ -184,6 +218,14 @@ class _FeuilleListScreenState extends ConsumerState<FeuilleListScreen> {
                       )
                     else
                       const Icon(Icons.chevron_right, color: Colors.white),
+                    IconButton(
+                      onPressed: isOpening ? null : () => _confirmDeleteFeuille(item),
+                      icon: Icon(
+                        Icons.delete_outline_rounded,
+                        color: isDraft ? const Color(0xFFB3261E) : Colors.white70,
+                      ),
+                      tooltip: 'Supprimer',
+                    ),
                   ],
                 ),
                 const SizedBox(height: 8),

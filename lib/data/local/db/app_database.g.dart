@@ -2886,11 +2886,11 @@ class $FeuillesTable extends Feuilles with TableInfo<$FeuillesTable, Feuille> {
     'hourMeter',
   );
   @override
-  late final GeneratedColumn<int> hourMeter = GeneratedColumn<int>(
+  late final GeneratedColumn<double> hourMeter = GeneratedColumn<double>(
     'hour_meter',
     aliasedName,
     true,
-    type: DriftSqlType.int,
+    type: DriftSqlType.double,
     requiredDuringInsert: false,
   );
   static const VerificationMeta _fuelMeterMeta = const VerificationMeta(
@@ -3189,7 +3189,7 @@ class $FeuillesTable extends Feuilles with TableInfo<$FeuillesTable, Feuille> {
         data['${effectivePrefix}location_odoo_id'],
       ),
       hourMeter: attachedDatabase.typeMapping.read(
-        DriftSqlType.int,
+        DriftSqlType.double,
         data['${effectivePrefix}hour_meter'],
       ),
       fuelMeter: attachedDatabase.typeMapping.read(
@@ -3242,7 +3242,7 @@ class Feuille extends DataClass implements Insertable<Feuille> {
   final String dateForage;
   final int? foreuseOdooId;
   final int? locationOdooId;
-  final int? hourMeter;
+  final double? hourMeter;
   final String? fuelMeter;
   final String? forageSignature;
   final String? clientSignature;
@@ -3288,7 +3288,7 @@ class Feuille extends DataClass implements Insertable<Feuille> {
       map['location_odoo_id'] = Variable<int>(locationOdooId);
     }
     if (!nullToAbsent || hourMeter != null) {
-      map['hour_meter'] = Variable<int>(hourMeter);
+      map['hour_meter'] = Variable<double>(hourMeter);
     }
     if (!nullToAbsent || fuelMeter != null) {
       map['fuel_meter'] = Variable<String>(fuelMeter);
@@ -3361,7 +3361,7 @@ class Feuille extends DataClass implements Insertable<Feuille> {
       dateForage: serializer.fromJson<String>(json['dateForage']),
       foreuseOdooId: serializer.fromJson<int?>(json['foreuseOdooId']),
       locationOdooId: serializer.fromJson<int?>(json['locationOdooId']),
-      hourMeter: serializer.fromJson<int?>(json['hourMeter']),
+      hourMeter: serializer.fromJson<double?>(json['hourMeter']),
       fuelMeter: serializer.fromJson<String?>(json['fuelMeter']),
       forageSignature: serializer.fromJson<String?>(json['forageSignature']),
       clientSignature: serializer.fromJson<String?>(json['clientSignature']),
@@ -3384,7 +3384,7 @@ class Feuille extends DataClass implements Insertable<Feuille> {
       'dateForage': serializer.toJson<String>(dateForage),
       'foreuseOdooId': serializer.toJson<int?>(foreuseOdooId),
       'locationOdooId': serializer.toJson<int?>(locationOdooId),
-      'hourMeter': serializer.toJson<int?>(hourMeter),
+      'hourMeter': serializer.toJson<double?>(hourMeter),
       'fuelMeter': serializer.toJson<String?>(fuelMeter),
       'forageSignature': serializer.toJson<String?>(forageSignature),
       'clientSignature': serializer.toJson<String?>(clientSignature),
@@ -3405,7 +3405,7 @@ class Feuille extends DataClass implements Insertable<Feuille> {
     String? dateForage,
     Value<int?> foreuseOdooId = const Value.absent(),
     Value<int?> locationOdooId = const Value.absent(),
-    Value<int?> hourMeter = const Value.absent(),
+    Value<double?> hourMeter = const Value.absent(),
     Value<String?> fuelMeter = const Value.absent(),
     Value<String?> forageSignature = const Value.absent(),
     Value<String?> clientSignature = const Value.absent(),
@@ -3555,7 +3555,7 @@ class FeuillesCompanion extends UpdateCompanion<Feuille> {
   final Value<String> dateForage;
   final Value<int?> foreuseOdooId;
   final Value<int?> locationOdooId;
-  final Value<int?> hourMeter;
+  final Value<double?> hourMeter;
   final Value<String?> fuelMeter;
   final Value<String?> forageSignature;
   final Value<String?> clientSignature;
@@ -3616,7 +3616,7 @@ class FeuillesCompanion extends UpdateCompanion<Feuille> {
     Expression<String>? dateForage,
     Expression<int>? foreuseOdooId,
     Expression<int>? locationOdooId,
-    Expression<int>? hourMeter,
+    Expression<double>? hourMeter,
     Expression<String>? fuelMeter,
     Expression<String>? forageSignature,
     Expression<String>? clientSignature,
@@ -3656,7 +3656,7 @@ class FeuillesCompanion extends UpdateCompanion<Feuille> {
     Value<String>? dateForage,
     Value<int?>? foreuseOdooId,
     Value<int?>? locationOdooId,
-    Value<int?>? hourMeter,
+    Value<double?>? hourMeter,
     Value<String?>? fuelMeter,
     Value<String?>? forageSignature,
     Value<String?>? clientSignature,
@@ -3715,7 +3715,7 @@ class FeuillesCompanion extends UpdateCompanion<Feuille> {
       map['location_odoo_id'] = Variable<int>(locationOdooId.value);
     }
     if (hourMeter.present) {
-      map['hour_meter'] = Variable<int>(hourMeter.value);
+      map['hour_meter'] = Variable<double>(hourMeter.value);
     }
     if (fuelMeter.present) {
       map['fuel_meter'] = Variable<String>(fuelMeter.value);
@@ -8795,7 +8795,7 @@ typedef $$FeuillesTableCreateCompanionBuilder =
       required String dateForage,
       Value<int?> foreuseOdooId,
       Value<int?> locationOdooId,
-      Value<int?> hourMeter,
+      Value<double?> hourMeter,
       Value<String?> fuelMeter,
       Value<String?> forageSignature,
       Value<String?> clientSignature,
@@ -8815,7 +8815,7 @@ typedef $$FeuillesTableUpdateCompanionBuilder =
       Value<String> dateForage,
       Value<int?> foreuseOdooId,
       Value<int?> locationOdooId,
-      Value<int?> hourMeter,
+      Value<double?> hourMeter,
       Value<String?> fuelMeter,
       Value<String?> forageSignature,
       Value<String?> clientSignature,
@@ -8875,7 +8875,7 @@ class $$FeuillesTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<int> get hourMeter => $composableBuilder(
+  ColumnFilters<double> get hourMeter => $composableBuilder(
     column: $table.hourMeter,
     builder: (column) => ColumnFilters(column),
   );
@@ -8970,7 +8970,7 @@ class $$FeuillesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<int> get hourMeter => $composableBuilder(
+  ColumnOrderings<double> get hourMeter => $composableBuilder(
     column: $table.hourMeter,
     builder: (column) => ColumnOrderings(column),
   );
@@ -9059,7 +9059,7 @@ class $$FeuillesTableAnnotationComposer
     builder: (column) => column,
   );
 
-  GeneratedColumn<int> get hourMeter =>
+  GeneratedColumn<double> get hourMeter =>
       $composableBuilder(column: $table.hourMeter, builder: (column) => column);
 
   GeneratedColumn<String> get fuelMeter =>
@@ -9129,7 +9129,7 @@ class $$FeuillesTableTableManager
                 Value<String> dateForage = const Value.absent(),
                 Value<int?> foreuseOdooId = const Value.absent(),
                 Value<int?> locationOdooId = const Value.absent(),
-                Value<int?> hourMeter = const Value.absent(),
+                Value<double?> hourMeter = const Value.absent(),
                 Value<String?> fuelMeter = const Value.absent(),
                 Value<String?> forageSignature = const Value.absent(),
                 Value<String?> clientSignature = const Value.absent(),
@@ -9167,7 +9167,7 @@ class $$FeuillesTableTableManager
                 required String dateForage,
                 Value<int?> foreuseOdooId = const Value.absent(),
                 Value<int?> locationOdooId = const Value.absent(),
-                Value<int?> hourMeter = const Value.absent(),
+                Value<double?> hourMeter = const Value.absent(),
                 Value<String?> fuelMeter = const Value.absent(),
                 Value<String?> forageSignature = const Value.absent(),
                 Value<String?> clientSignature = const Value.absent(),

@@ -63,7 +63,10 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
 
   @override
   void dispose() {
-    _persistMeterFields();
+    // Ne pas appeler _persistMeterFields() ici : il fait ref.read(...notifier),
+    // et ref est deja invalide pendant finalizeTree -> StateError
+    // "Cannot use ref after the widget was disposed".
+    // Les champs compteur sont en lecture seule dans cet ecran : rien a persister.
     _hourMeterController.dispose();
     _fuelMeterController.dispose();
     super.dispose();
@@ -144,7 +147,7 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
       projectDateDJ: project?.dateDJ,
       projectDateDN: project?.dateDN,
     );
-    notifier.setHourMeter(feuille.hourMeter?.toString() ?? '');
+    notifier.setHourMeter(_formatMeterValue(feuille.hourMeter));
     notifier.setFuelMeter(feuille.fuelMeter ?? '');
     notifier.setTimeLogs(
       lignes
@@ -285,6 +288,13 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
 
   double _parseDouble(String value) {
     return double.tryParse(value.trim().replaceAll(',', '.')) ?? 0.0;
+  }
+
+  String _formatMeterValue(double? value) {
+    if (value == null) {
+      return '';
+    }
+    return value == value.roundToDouble() ? value.toInt().toString() : value.toString();
   }
 
   int? _tryParseInt(String value) {
@@ -492,7 +502,7 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
           dateForage: dateForage,
           foreuseOdooId: draft.foreuseOdooId,
           locationOdooId: draft.locationOdooId,
-          hourMeter: _tryParseInt(draft.hourMeter),
+          hourMeter: _tryParseDouble(draft.hourMeter),
           fuelMeter: draft.fuelMeter.trim().isEmpty ? null : draft.fuelMeter.trim(),
           forageSignature: forageSignature,
           clientSignature: clientSignature,
@@ -511,7 +521,7 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
             dateForage: Value(dateForage),
             foreuseOdooId: Value(draft.foreuseOdooId),
             locationOdooId: Value(draft.locationOdooId),
-            hourMeter: Value(_tryParseInt(draft.hourMeter)),
+            hourMeter: Value(_tryParseDouble(draft.hourMeter)),
             fuelMeter: Value(
               draft.fuelMeter.trim().isEmpty ? null : draft.fuelMeter.trim(),
             ),
@@ -544,7 +554,7 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
           dateForage: dateForage,
           foreuseOdooId: draft.foreuseOdooId,
           locationOdooId: draft.locationOdooId,
-          hourMeter: _tryParseInt(draft.hourMeter),
+          hourMeter: _tryParseDouble(draft.hourMeter),
           fuelMeter: draft.fuelMeter.trim().isEmpty ? null : draft.fuelMeter.trim(),
           forageSignature: forageSignature,
           clientSignature: clientSignature,
@@ -2101,7 +2111,7 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
                           'Metres drill',
                           '$_totalMetersDrill',
                           const Color(0xFFDB4437),
-                          secondaryValue: _penetrationRateText == '0' ? null : 'Penetration Rate: $_penetrationRateText',
+                          secondaryValue: _penetrationRateText == '0' ? null : 'Pen. Rate: $_penetrationRateText',
                         ),
                         _buildSummaryTile('Heures', _totalHours, const Color(0xFF1F7A8C)),
                         _buildSummaryTile('Fuel total', _formatFuel(_totalFuel), const Color(0xFF6C9A1F)),

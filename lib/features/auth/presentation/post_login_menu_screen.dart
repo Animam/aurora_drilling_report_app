@@ -247,55 +247,57 @@ class _PostLoginMenuScreenState extends ConsumerState<PostLoginMenuScreen> {
             constraints: const BoxConstraints(maxWidth: 760),
             child: Padding(
               padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF13233F),
-                      borderRadius: BorderRadius.circular(28),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x22000000),
-                          blurRadius: 24,
-                          offset: Offset(0, 12),
-                        ),
-                      ],
-                    ),
-                    child: const Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Rapport De Forage',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 28,
-                            fontWeight: FontWeight.w900,
-                            
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF13233F),
+                        borderRadius: BorderRadius.circular(28),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x22000000),
+                            blurRadius: 24,
+                            offset: Offset(0, 12),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
+                      child: const Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Rapport De Forage',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 28,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 24),
-                  _ActionCard(
-                    icon: Icons.note_add_outlined,
-                    title: 'Creer une nouvelle feuille',
-                    subtitle: 'Demarrer une nouvelle saisie locale.',
-                    accent: const Color(0xFFF18E28),
-                    onTap: () => _openCreateSheet(context, ref),
-                  ),
-                  const SizedBox(height: 16),
-                  _ActionCard(
-                    icon: Icons.sync_problem_outlined,
-                    title: 'Voir les feuilles non synchronisees',
-                    subtitle: 'Ouvrir la liste locale des feuilles en attente de synchronisation.',
-                    accent: const Color(0xFF2457C5),
-                    onTap: () => _openPendingSheets(context),
-                  ),
-                ],
+                    const SizedBox(height: 24),
+                    _ActionCard(
+                      icon: Icons.note_add_outlined,
+                      title: 'Creer une nouvelle feuille',
+                      subtitle: 'Demarrer une nouvelle saisie locale.',
+                      accent: const Color(0xFFF18E28),
+                      onTap: () => _openCreateSheet(context, ref),
+                    ),
+                    const SizedBox(height: 16),
+                    _ActionCard(
+                      icon: Icons.sync_problem_outlined,
+                      title: 'Voir les feuilles non synchronisees',
+                      subtitle: 'Ouvrir la liste locale des feuilles en attente de synchronisation.',
+                      accent: const Color(0xFF2457C5),
+                      onTap: () => _openPendingSheets(context),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

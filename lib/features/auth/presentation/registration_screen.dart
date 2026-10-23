@@ -229,11 +229,10 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
     if (_selectedQuart == null ||
         _selectedForeuseOdooId == null ||
         _selectedLocationOdooId == null ||
-        _dateController.text.trim().isEmpty ||
-        _hourMeterController.text.trim().isEmpty) {
+        _dateController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Renseignez Quart, Foreuse, Location, Date et Compteur horaire.'),
+          content: Text('Renseignez Quart, Foreuse, Location et Date.'),
         ),
       );
       return;
@@ -272,7 +271,7 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
       dateForage: _dateController.text.trim(),
       foreuseOdooId: _selectedForeuseOdooId,
       locationOdooId: _selectedLocationOdooId,
-      hourMeter: int.tryParse(_hourMeterController.text.trim()),
+      hourMeter: double.tryParse(_hourMeterController.text.trim().replaceAll(',', '.')),
       fuelMeter: _fuelMeterController.text.trim().isEmpty ? null : _fuelMeterController.text.trim(),
       syncStatus: 'draft',
       existingFeuilleLocalId: draft.currentFeuilleLocalId,
@@ -542,8 +541,16 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
       child: TextFormField(
         controller: controller,
         enabled: enabled,
-        keyboardType: TextInputType.number,
-        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+        keyboardType: TextInputType.numberWithOptions(decimal: true),
+        inputFormatters: [
+          // Chiffres + au maximum un separateur decimal ('.' ou ',').
+          TextInputFormatter.withFunction((oldValue, newValue) {
+            if (RegExp(r'^\d*([.,]\d*)?$').hasMatch(newValue.text)) {
+              return newValue;
+            }
+            return oldValue;
+          }),
+        ],
         onChanged: onChanged,
         style: const TextStyle(fontSize: 14, color: Colors.black87),
         decoration: _inputDecoration().copyWith(
@@ -699,12 +706,16 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                             ),
                           ),
                           const SizedBox(height: 25),
-                          _buildLabel('Hour meter / Compteur horaire *'),
+                          _buildLabel('Hour meter / Compteur horaire'),
                           _buildOptionalTextField(
                             controller: _hourMeterController,
-                            hint: meterEnabled ? 'Obligatoire' : 'Selectionnez d abord la date',
+                            hint: meterEnabled ? 'Optionnel' : 'Selectionnez d abord la date',
                             enabled: meterEnabled,
-                            onChanged: (value) => ref.read(reportDraftProvider.notifier).setHourMeter(value.trim()),
+                            onChanged: (value) {
+                              if (mounted) {
+                                ref.read(reportDraftProvider.notifier).setHourMeter(value.trim());
+                              }
+                            },
                           ),
                           const SizedBox(height: 25),
                            _buildLabel('Fuel meter / Compteur carburant'),
@@ -712,7 +723,11 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                             controller: _fuelMeterController,
                             hint: meterEnabled ? 'Optionnel' : 'Selectionnez d abord la date',
                             enabled: meterEnabled,
-                            onChanged: (value) => ref.read(reportDraftProvider.notifier).setFuelMeter(value.trim()),
+                            onChanged: (value) {
+                              if (mounted) {
+                                ref.read(reportDraftProvider.notifier).setFuelMeter(value.trim());
+                              }
+                            },
                           ),
                           const SizedBox(height: 25),
                           _buildActionButtons(),

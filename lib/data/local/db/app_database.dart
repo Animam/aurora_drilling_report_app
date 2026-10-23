@@ -79,7 +79,7 @@ class Feuilles extends Table {
   IntColumn get foreuseOdooId => integer().nullable()();
   IntColumn get locationOdooId => integer().nullable()();
 
-  IntColumn get hourMeter => integer().nullable()();
+  RealColumn get hourMeter => real().nullable()();
   TextColumn get fuelMeter => text().nullable()();
   TextColumn get forageSignature => text().nullable()();
   TextColumn get clientSignature => text().nullable()();
@@ -216,7 +216,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 10;
+  int get schemaVersion => 11;
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (Migrator m) async => m.createAll(),
@@ -224,6 +224,25 @@ class AppDatabase extends _$AppDatabase {
       await m.createAll();
       if (from < 10) {
         await m.addColumn(locations, locations.projectOdooId);
+      }
+      if (from < 11) {
+        // hourMeter INTEGER -> REAL (compteur decimal). SQLite ne peut pas
+        // convertir une colonne in-place : on reconstruit la table feuilles
+        // en conservant les donnees existantes (CAST en REAL).
+        await customStatement('ALTER TABLE feuilles RENAME TO feuilles_old');
+        await m.createTable(feuilles);
+        await customStatement(
+          'INSERT INTO feuilles ('
+          'local_id, mobile_uuid, odoo_id, nom_projet_odoo_id, quart, date_forage, '
+          'foreuse_odoo_id, location_odoo_id, hour_meter, fuel_meter, forage_signature, '
+          'client_signature, remarks, sync_status, is_visible, created_at, updated_at) '
+          'SELECT local_id, mobile_uuid, odoo_id, nom_projet_odoo_id, quart, date_forage, '
+          'foreuse_odoo_id, location_odoo_id, CAST(hour_meter AS REAL), fuel_meter, '
+          'forage_signature, client_signature, remarks, sync_status, is_visible, '
+          'created_at, updated_at '
+          'FROM feuilles_old',
+        );
+        await customStatement('DROP TABLE feuilles_old');
       }
     },
   );
@@ -385,7 +404,7 @@ class AppDatabase extends _$AppDatabase {
     required String dateForage,
     int? foreuseOdooId,
     int? locationOdooId,
-    int? hourMeter,
+    double? hourMeter,
     String? fuelMeter,
     String? forageSignature,
     String? clientSignature,
@@ -546,7 +565,7 @@ class AppDatabase extends _$AppDatabase {
     required String dateForage,
     int? foreuseOdooId,
     int? locationOdooId,
-    int? hourMeter,
+    double? hourMeter,
     String? fuelMeter,
     String? forageSignature,
     String? clientSignature,

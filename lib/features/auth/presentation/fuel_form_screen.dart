@@ -102,7 +102,9 @@ class _DrillingFuelFormState extends ConsumerState<DrillingFuelForm> {
 
   @override
   void dispose() {
-    _persistDraft();
+    // Ne pas appeler _persistDraft() ici : il fait ref.read(...notifier), et ref
+    // est deja invalide pendant finalizeTree -> StateError "Cannot use ref after
+    // the widget was disposed". Le draft est deja persiste a chaque onChanged.
     for (final item in _items) {
       item.dispose();
     }
@@ -227,6 +229,9 @@ class _DrillingFuelFormState extends ConsumerState<DrillingFuelForm> {
   }
 
   void _persistDraft() {
+    if (!mounted) {
+      return;
+    }
     ref.read(reportDraftProvider.notifier).setFuelLogs(
           _items.map((item) => item.toReportDraft()).toList(growable: false),
         );
@@ -234,6 +239,11 @@ class _DrillingFuelFormState extends ConsumerState<DrillingFuelForm> {
   }
 
   Future<void> _autoSaveFuelLogs() async {
+    // Le microtask planifie par _persistDraft peut s'executer apres la
+    // destruction de l'ecran : ref n'est plus utilisable a ce moment-la.
+    if (!mounted) {
+      return;
+    }
     final draft = ref.read(reportDraftProvider);
     final feuilleLocalId = draft.currentFeuilleLocalId;
     if (feuilleLocalId == null) {

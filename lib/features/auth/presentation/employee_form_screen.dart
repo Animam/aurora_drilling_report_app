@@ -105,7 +105,9 @@ class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
 
   @override
   void dispose() {
-    _persistDraft();
+    // Ne pas appeler _persistDraft() ici : il fait ref.read(...notifier), et ref
+    // est deja invalide pendant finalizeTree -> StateError "Cannot use ref after
+    // the widget was disposed". Le draft est deja persiste a chaque onChanged.
     for (final log in _staffLogs) {
       log.dispose();
     }
@@ -137,6 +139,9 @@ class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
   }
 
   void _persistDraft() {
+    if (!mounted) {
+      return;
+    }
     ref.read(reportDraftProvider.notifier).setStaffLogs(
           _staffLogs.map((log) => log.toReportDraft()).toList(growable: false),
         );
@@ -144,6 +149,11 @@ class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
   }
 
   Future<void> _autoSaveStaffLogs() async {
+    // Le microtask planifie par _persistDraft peut s'executer apres la
+    // destruction de l'ecran : ref n'est plus utilisable a ce moment-la.
+    if (!mounted) {
+      return;
+    }
     final draft = ref.read(reportDraftProvider);
     final feuilleLocalId = draft.currentFeuilleLocalId;
     if (feuilleLocalId == null) {

@@ -172,7 +172,9 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
 
   @override
   void dispose() {
-    _persistDraft();
+    // Ne pas appeler _persistDraft() ici : il fait ref.read(...notifier), et ref
+    // est deja invalide pendant finalizeTree -> StateError "Cannot use ref after
+    // the widget was disposed". Le draft est deja persiste a chaque onChanged.
     for (final log in _timeLogs) {
       log.dispose();
     }
@@ -353,6 +355,9 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
   }
 
   void _persistDraft() {
+    if (!mounted) {
+      return;
+    }
     ref.read(reportDraftProvider.notifier).setTimeLogs(
           _timeLogs.map((row) => row.toReportDraft()).toList(growable: false),
         );
@@ -360,6 +365,11 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
   }
 
   Future<void> _autoSaveTimeLogs() async {
+    // Le microtask planifie par _persistDraft peut s'executer apres la
+    // destruction de l'ecran : ref n'est plus utilisable a ce moment-la.
+    if (!mounted) {
+      return;
+    }
     final draft = ref.read(reportDraftProvider);
     final feuilleLocalId = draft.currentFeuilleLocalId;
     if (feuilleLocalId == null) {
@@ -2624,7 +2634,7 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
           ClipRRect(
             borderRadius: BorderRadius.circular(999),
             child: SizedBox(
-              height: 18,
+              height: 26,
               child: Row(
                 children: [
                   for (final segment in segments)
