@@ -22,6 +22,14 @@ class FeuilleListScreen extends ConsumerStatefulWidget {
 }
 
 class _FeuilleListScreenState extends ConsumerState<FeuilleListScreen> {
+  static const Color _accentOrange = Color(0xFFF18E28);
+  static const Color _designNavy = Color(0xFF13233F);
+  static const Color _designNavyLight = Color(0xFF1E3A5F);
+  static const Color _textDark = Color(0xFF18243E);
+  static const Color _muted = Color(0xFF69758C);
+  static const Color _border = Color(0xFFD7DFEA);
+  static const Color _softBg = Color(0xFFFDF8E1);
+
   bool _initialMessageShown = false;
   List<Feuille> _items = [];
   Map<int, String> _equipmentNames = {};
@@ -58,22 +66,32 @@ class _FeuilleListScreenState extends ConsumerState<FeuilleListScreen> {
 
   Widget _buildInfoChip(IconData icon, String label, {required bool isDraft}) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: isDraft ? const Color(0xFF7A1E16) : Colors.white.withValues(alpha: 0.10),
+        color: isDraft
+            ? const Color(0xFFB3261E).withValues(alpha: 0.12)
+            : Colors.white.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+        border: Border.all(
+          color: isDraft
+              ? const Color(0xFFB3261E).withValues(alpha: 0.35)
+              : Colors.white.withValues(alpha: 0.18),
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 22, color: Colors.white),
-          const SizedBox(width: 10),
+          Icon(
+            icon,
+            size: 16,
+            color: isDraft ? const Color(0xFFB3261E) : _accentOrange,
+          ),
+          const SizedBox(width: 8),
           Text(
             label,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 17,
+            style: TextStyle(
+              color: isDraft ? const Color(0xFF7C1C13) : Colors.white,
+              fontSize: 13,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -94,29 +112,59 @@ class _FeuilleListScreenState extends ConsumerState<FeuilleListScreen> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Text(
-            'Supprimer la feuille',
-            style: TextStyle(fontWeight: FontWeight.w800),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          title: Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: Colors.redAccent.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.delete_outline_rounded,
+                  color: Colors.redAccent,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Supprimer la feuille',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    color: _textDark,
+                  ),
+                ),
+              ),
+            ],
           ),
           content: Text(
             isDraft
                 ? 'Ce brouillon sera definitivement supprime de cet appareil. '
-                    'Cette action est irreversible.'
+                      'Cette action est irreversible.'
                 : 'Cette feuille en attente de synchronisation sera definitivement '
-                    'supprimee de cet appareil et ne sera jamais synchronisee. '
-                    'Cette action est irreversible.',
+                      'supprimee de cet appareil et ne sera jamais synchronisee. '
+                      'Cette action est irreversible.',
+            style: const TextStyle(color: _muted),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
+              style: TextButton.styleFrom(foregroundColor: _designNavy),
               child: const Text('Annuler'),
             ),
             FilledButton.icon(
               onPressed: () => Navigator.of(dialogContext).pop(true),
               icon: const Icon(Icons.delete_outline_rounded, size: 18),
               label: const Text('Supprimer'),
-              style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+                foregroundColor: Colors.white,
+                textStyle: const TextStyle(fontWeight: FontWeight.w800),
+              ),
             ),
           ],
         );
@@ -129,10 +177,12 @@ class _FeuilleListScreenState extends ConsumerState<FeuilleListScreen> {
   }
 
   Widget _buildFeuilleCard(Feuille item) {
-    final foreuseName =
-        item.foreuseOdooId != null ? (_equipmentNames[item.foreuseOdooId!] ?? '--') : '--';
-    final locationName =
-        item.locationOdooId != null ? (_locationNames[item.locationOdooId!] ?? '--') : '--';
+    final foreuseName = item.foreuseOdooId != null
+        ? (_equipmentNames[item.foreuseOdooId!] ?? '--')
+        : '--';
+    final locationName = item.locationOdooId != null
+        ? (_locationNames[item.locationOdooId!] ?? '--')
+        : '--';
     final isOpening = _openingFeuilleLocalId == item.localId;
     final isDraft = item.syncStatus == 'draft';
 
@@ -172,14 +222,17 @@ class _FeuilleListScreenState extends ConsumerState<FeuilleListScreen> {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: isDraft
-                  ? const [Color(0xFFFCE8E6), Color(0xFFF9D7D2)]
-                  : const [Color(0xFF27456F), Color(0xFF172D4D)],
+                  ? const [Color(0xFFFFF4F3), Colors.white]
+                  : const [_designNavy, _designNavyLight],
             ),
-            boxShadow: [
+            border: Border.all(
+              color: isDraft ? _border : Colors.white.withValues(alpha: 0.08),
+            ),
+            boxShadow: const [
               BoxShadow(
-                color: const Color(0xFF13233F).withValues(alpha: 0.18),
-                blurRadius: 18,
-                offset: const Offset(0, 8),
+                color: Color(0x0F13233F),
+                blurRadius: 14,
+                offset: Offset(0, 6),
               ),
             ],
           ),
@@ -189,54 +242,113 @@ class _FeuilleListScreenState extends ConsumerState<FeuilleListScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    if (isDraft)
-                      Container(
-                        margin: const EdgeInsets.only(right: 10),
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFB3261E).withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: const Text(
-                          'Brouillon',
-                          style: TextStyle(
-                            color: Color(0xFFB3261E),
-                            fontWeight: FontWeight.w800,
+                    Row(
+                      children: [
+                        Container(
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            color: isDraft
+                                ? const Color(
+                                    0xFFB3261E,
+                                  ).withValues(alpha: 0.12)
+                                : _accentOrange.withValues(alpha: 0.16),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(
+                            Icons.description_outlined,
+                            size: 20,
+                            color: isDraft
+                                ? const Color(0xFFB3261E)
+                                : _accentOrange,
                           ),
                         ),
-                      ),
-                    if (isOpening)
-                      const SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.2,
-                          color: Colors.white,
+                        const SizedBox(width: 10),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              isDraft ? 'Brouillon' : 'Feuille en attente',
+                              style: TextStyle(
+                                color: isDraft ? _textDark : Colors.white,
+                                fontWeight: FontWeight.w900,
+                                fontSize: 16,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              item.mobileUuid.isEmpty ? '--' : item.mobileUuid,
+                              style: TextStyle(
+                                color: isDraft
+                                    ? _muted
+                                    : Colors.white.withValues(alpha: 0.7),
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
                         ),
-                      )
-                    else
-                      const Icon(Icons.chevron_right, color: Colors.white),
-                    IconButton(
-                      onPressed: isOpening ? null : () => _confirmDeleteFeuille(item),
-                      icon: Icon(
-                        Icons.delete_outline_rounded,
-                        color: isDraft ? const Color(0xFFB3261E) : Colors.white70,
-                      ),
-                      tooltip: 'Supprimer',
+                      ],
+                    ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (isOpening)
+                          SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.2,
+                              color: isDraft ? _designNavy : Colors.white,
+                            ),
+                          )
+                        else
+                          Icon(
+                            Icons.chevron_right_rounded,
+                            color: isDraft ? _muted : Colors.white,
+                          ),
+                        IconButton(
+                          onPressed: isOpening
+                              ? null
+                              : () => _confirmDeleteFeuille(item),
+                          icon: Icon(
+                            Icons.delete_outline_rounded,
+                            color: isDraft
+                                ? const Color(0xFFB3261E)
+                                : Colors.white70,
+                          ),
+                          tooltip: 'Supprimer',
+                        ),
+                      ],
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 16),
                 Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
+                  spacing: 10,
+                  runSpacing: 10,
                   children: [
-                    _buildInfoChip(Icons.badge_outlined, item.quart, isDraft: isDraft),
-                    _buildInfoChip(Icons.precision_manufacturing_outlined, foreuseName, isDraft: isDraft),
-                    _buildInfoChip(Icons.location_on_outlined, locationName, isDraft: isDraft),
-                    _buildInfoChip(Icons.calendar_today_outlined, _formatDate(item.dateForage), isDraft: isDraft),
+                    _buildInfoChip(
+                      Icons.badge_outlined,
+                      item.quart,
+                      isDraft: isDraft,
+                    ),
+                    _buildInfoChip(
+                      Icons.precision_manufacturing_outlined,
+                      foreuseName,
+                      isDraft: isDraft,
+                    ),
+                    _buildInfoChip(
+                      Icons.location_on_outlined,
+                      locationName,
+                      isDraft: isDraft,
+                    ),
+                    _buildInfoChip(
+                      Icons.calendar_today_outlined,
+                      _formatDate(item.dateForage),
+                      isDraft: isDraft,
+                    ),
                   ],
                 ),
               ],
@@ -283,19 +395,68 @@ class _FeuilleListScreenState extends ConsumerState<FeuilleListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Feuilles a Synchronisées',style: TextStyle(color: Colors.white),),
-        centerTitle: true,
-        backgroundColor: const Color(0xFFF18E28),
+        backgroundColor: _softBg,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        centerTitle: false,
+        titleSpacing: 6,
+        leadingWidth: 68,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 12),
+          child: IconButton(
+            tooltip: 'Retour',
+            onPressed: () => Navigator.of(context).maybePop(),
+            style: IconButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: _designNavy,
+              side: const BorderSide(color: Color(0xFFE3E8F0)),
+            ),
+            icon: const Icon(Icons.arrow_back_rounded, size: 20),
+          ),
+        ),
+        title: Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE3E8F0)),
+              ),
+              child: Image.asset(
+                'assets/images/aurora_logo.png',
+                fit: BoxFit.contain,
+              ),
+            ),
+            const SizedBox(width: 10),
+            const Flexible(
+              child: Text(
+                'Feuilles à synchroniser',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: _textDark,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
           ref.read(reportDraftProvider.notifier).reset();
-          await Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const RegistrationScreen()),
-          );
+          await Navigator.of(
+            context,
+          ).push(MaterialPageRoute(builder: (_) => const RegistrationScreen()));
           _load();
         },
-        backgroundColor: const Color(0xFFF18E28),
+        backgroundColor: _accentOrange,
+        foregroundColor: _designNavy,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: const Icon(Icons.add),
       ),
       body: Container(
@@ -304,15 +465,59 @@ class _FeuilleListScreenState extends ConsumerState<FeuilleListScreen> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFFFDF8E1), Color(0xFFF5F5F5)],
+            colors: [Color(0xFFF4F7FB), Color(0xFFF4F7FB)],
           ),
         ),
         child: _items.isEmpty
-            ? const Center(child: Text('Aucune feuille disponible'))
+            ? Center(
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.all(28),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: _border),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 64,
+                        height: 64,
+                        decoration: BoxDecoration(
+                          color: _accentOrange.withValues(alpha: 0.12),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.description_outlined,
+                          size: 30,
+                          color: _accentOrange,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Aucune feuille disponible',
+                        style: TextStyle(
+                          color: _textDark,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Crée une nouvelle feuille avec le bouton +',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: _muted),
+                      ),
+                    ],
+                  ),
+                ),
+              )
             : ListView.builder(
-                padding: const EdgeInsets.only(top: 6, bottom: 24),
+                padding: const EdgeInsets.only(top: 8, bottom: 24),
                 itemCount: _items.length,
-                itemBuilder: (context, index) => _buildFeuilleCard(_items[index]),
+                itemBuilder: (context, index) =>
+                    _buildFeuilleCard(_items[index]),
               ),
       ),
     );

@@ -33,6 +33,15 @@ class RecapScreen extends ConsumerStatefulWidget {
 }
 
 class _RecapScreenState extends ConsumerState<RecapScreen> {
+  static const Color _accentOrange = Color(0xFFF18E28);
+  static const Color _designNavy = Color(0xFF13233F);
+  static const Color _designNavyLight = Color(0xFF1E3A5F);
+  static const Color _textDark = Color(0xFF18243E);
+  static const Color _muted = Color(0xFF69758C);
+  static const Color _border = Color(0xFFD7DFEA);
+  static const Color _softBg = Color(0xFFFDF8E1);
+  static const Color _fieldBg = Color(0xFFF3F6FB);
+
   Project? _project;
   Equipment? _foreuse;
   Location? _location;
@@ -86,8 +95,14 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
     _companySignaturePoints
       ..clear()
       ..addAll(_fromDraftSignature(draft.companySignature));
-    _isClientSignatureLocked = _signatureHasContent(_clientSignaturePoints, _existingClientSignature);
-    _isCompanySignatureLocked = _signatureHasContent(_companySignaturePoints, _existingForageSignature);
+    _isClientSignatureLocked = _signatureHasContent(
+      _clientSignaturePoints,
+      _existingClientSignature,
+    );
+    _isCompanySignatureLocked = _signatureHasContent(
+      _companySignaturePoints,
+      _existingForageSignature,
+    );
     _hourMeterController.text = draft.hourMeter;
     _fuelMeterController.text = draft.fuelMeter;
 
@@ -107,9 +122,21 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
     }
 
     setState(() {
-      _project = _findByOdooId<Project>(projects, draft.projectOdooId, (item) => item.odooId);
-      _foreuse = _findByOdooId<Equipment>(equipments, draft.foreuseOdooId, (item) => item.odooId);
-      _location = _findByOdooId<Location>(locations, draft.locationOdooId, (item) => item.odooId);
+      _project = _findByOdooId<Project>(
+        projects,
+        draft.projectOdooId,
+        (item) => item.odooId,
+      );
+      _foreuse = _findByOdooId<Equipment>(
+        equipments,
+        draft.foreuseOdooId,
+        (item) => item.odooId,
+      );
+      _location = _findByOdooId<Location>(
+        locations,
+        draft.locationOdooId,
+        (item) => item.odooId,
+      );
       _tasks = tasks;
       _loading = false;
     });
@@ -119,10 +146,9 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
     final db = ref.read(appDatabaseProvider);
     final notifier = ref.read(reportDraftProvider.notifier);
 
-    final feuille =
-        await (db.select(db.feuilles)
-              ..where((tbl) => tbl.localId.equals(feuilleLocalId)))
-            .getSingle();
+    final feuille = await (db.select(
+      db.feuilles,
+    )..where((tbl) => tbl.localId.equals(feuilleLocalId))).getSingle();
     final lignes = await db.getLignesByFeuille(feuilleLocalId);
     final fuels = await db.getFuelsByFeuille(feuilleLocalId);
     final employes = await db.getEmployesByFeuille(feuilleLocalId);
@@ -172,7 +198,8 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
       employes
           .map(
             (row) => ReportStaffLogDraft(
-              employeNom: _findByOdooId<Employee>(
+              employeNom:
+                  _findByOdooId<Employee>(
                     employees,
                     row.employeeOdooId,
                     (item) => item.odooId,
@@ -207,7 +234,8 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
           .map(
             (row) => ReportFuelLogDraft(
               equipmentOdooId: row.compresseurOdooId,
-              equipement: _findByOdooId<Equipment>(
+              equipement:
+                  _findByOdooId<Equipment>(
                     equipments,
                     row.compresseurOdooId,
                     (item) => item.odooId,
@@ -245,18 +273,24 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
 
   List<ReportSignaturePointDraft> _toDraftSignature(List<Offset?> points) {
     return points
-        .map((point) => point == null
-            ? const ReportSignaturePointDraft(dx: 0, dy: 0, isBreak: true)
-            : ReportSignaturePointDraft(dx: point.dx, dy: point.dy))
+        .map(
+          (point) => point == null
+              ? const ReportSignaturePointDraft(dx: 0, dy: 0, isBreak: true)
+              : ReportSignaturePointDraft(dx: point.dx, dy: point.dy),
+        )
         .toList(growable: false);
   }
 
   void _saveClientSignature() {
-    ref.read(reportDraftProvider.notifier).setClientSignature(_toDraftSignature(_clientSignaturePoints));
+    ref
+        .read(reportDraftProvider.notifier)
+        .setClientSignature(_toDraftSignature(_clientSignaturePoints));
   }
 
   void _saveCompanySignature() {
-    ref.read(reportDraftProvider.notifier).setCompanySignature(_toDraftSignature(_companySignaturePoints));
+    ref
+        .read(reportDraftProvider.notifier)
+        .setCompanySignature(_toDraftSignature(_companySignaturePoints));
   }
 
   void _persistMeterFields() {
@@ -294,7 +328,9 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
     if (value == null) {
       return '';
     }
-    return value == value.roundToDouble() ? value.toInt().toString() : value.toString();
+    return value == value.roundToDouble()
+        ? value.toInt().toString()
+        : value.toString();
   }
 
   int? _tryParseInt(String value) {
@@ -451,10 +487,18 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
       throw Exception('Date de forage non renseignee');
     }
 
-    final filledTimeRows = draft.timeLogs.where(_hasTimeRowData).toList(growable: false);
-    final filledStaffRows = draft.staffLogs.where(_hasStaffRowData).toList(growable: false);
-    final filledMaterielRows = draft.materielLogs.where(_hasMaterielRowData).toList(growable: false);
-    final filledFuelRows = draft.fuelLogs.where(_hasFuelRowData).toList(growable: false);
+    final filledTimeRows = draft.timeLogs
+        .where(_hasTimeRowData)
+        .toList(growable: false);
+    final filledStaffRows = draft.staffLogs
+        .where(_hasStaffRowData)
+        .toList(growable: false);
+    final filledMaterielRows = draft.materielLogs
+        .where(_hasMaterielRowData)
+        .toList(growable: false);
+    final filledFuelRows = draft.fuelLogs
+        .where(_hasFuelRowData)
+        .toList(growable: false);
 
     for (final row in filledTimeRows) {
       if (row.codeTache.trim().isEmpty) {
@@ -464,7 +508,9 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
 
     for (final row in filledStaffRows) {
       if (row.employeeOdooId == null) {
-        throw Exception('Chaque ligne personnel doit avoir un employe selectionne');
+        throw Exception(
+          'Chaque ligne personnel doit avoir un employe selectionne',
+        );
       }
     }
 
@@ -476,15 +522,19 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
 
     for (final row in filledFuelRows) {
       if (row.equipmentOdooId == null) {
-        throw Exception('Chaque ligne equipement auxiliaire doit avoir un equipement selectionne');
+        throw Exception(
+          'Chaque ligne equipement auxiliaire doit avoir un equipement selectionne',
+        );
       }
     }
 
     final uuid = const Uuid();
     final forageSignature =
-        (await _signatureToBase64(_companySignaturePoints)) ?? _existingForageSignature;
+        (await _signatureToBase64(_companySignaturePoints)) ??
+        _existingForageSignature;
     final clientSignature =
-        (await _signatureToBase64(_clientSignaturePoints)) ?? _existingClientSignature;
+        (await _signatureToBase64(_clientSignaturePoints)) ??
+        _existingClientSignature;
 
     late final int feuilleLocalId;
     await db.transaction(() async {
@@ -492,7 +542,10 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
 
       if (_currentFeuilleLocalId != null) {
         feuilleLocalId = _currentFeuilleLocalId!;
-        final currentMobileUuid = ref.read(reportDraftProvider).currentMobileUuid ?? _existingMobileUuid ?? uuid.v4();
+        final currentMobileUuid =
+            ref.read(reportDraftProvider).currentMobileUuid ??
+            _existingMobileUuid ??
+            uuid.v4();
         await db.saveLocalFeuilleDraft(
           existingFeuilleLocalId: feuilleLocalId,
           existingOdooId: _existingOdooId,
@@ -503,16 +556,18 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
           foreuseOdooId: draft.foreuseOdooId,
           locationOdooId: draft.locationOdooId,
           hourMeter: _tryParseDouble(draft.hourMeter),
-          fuelMeter: draft.fuelMeter.trim().isEmpty ? null : draft.fuelMeter.trim(),
+          fuelMeter: draft.fuelMeter.trim().isEmpty
+              ? null
+              : draft.fuelMeter.trim(),
           forageSignature: forageSignature,
           clientSignature: clientSignature,
           remarks: null,
           syncStatus: 'pending',
         );
 
-        await (db.update(db.feuilles)
-              ..where((tbl) => tbl.localId.equals(feuilleLocalId)))
-            .write(
+        await (db.update(
+          db.feuilles,
+        )..where((tbl) => tbl.localId.equals(feuilleLocalId))).write(
           FeuillesCompanion(
             mobileUuid: Value(currentMobileUuid),
             odooId: Value(_existingOdooId),
@@ -533,20 +588,21 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
           ),
         );
 
-        await (db.delete(db.feuilleLignes)
-              ..where((tbl) => tbl.feuilleLocalId.equals(feuilleLocalId)))
-            .go();
-        await (db.delete(db.feuilleFuels)
-              ..where((tbl) => tbl.feuilleLocalId.equals(feuilleLocalId)))
-            .go();
-        await (db.delete(db.feuilleEmployes)
-              ..where((tbl) => tbl.feuilleLocalId.equals(feuilleLocalId)))
-            .go();
-        await (db.delete(db.feuilleMateriels)
-              ..where((tbl) => tbl.feuilleLocalId.equals(feuilleLocalId)))
-            .go();
+        await (db.delete(
+          db.feuilleLignes,
+        )..where((tbl) => tbl.feuilleLocalId.equals(feuilleLocalId))).go();
+        await (db.delete(
+          db.feuilleFuels,
+        )..where((tbl) => tbl.feuilleLocalId.equals(feuilleLocalId))).go();
+        await (db.delete(
+          db.feuilleEmployes,
+        )..where((tbl) => tbl.feuilleLocalId.equals(feuilleLocalId))).go();
+        await (db.delete(
+          db.feuilleMateriels,
+        )..where((tbl) => tbl.feuilleLocalId.equals(feuilleLocalId))).go();
       } else {
-        final currentMobileUuid = ref.read(reportDraftProvider).currentMobileUuid ?? uuid.v4();
+        final currentMobileUuid =
+            ref.read(reportDraftProvider).currentMobileUuid ?? uuid.v4();
         feuilleLocalId = await db.saveLocalFeuilleDraft(
           mobileUuid: currentMobileUuid,
           nomProjetOdooId: projectId,
@@ -555,18 +611,22 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
           foreuseOdooId: draft.foreuseOdooId,
           locationOdooId: draft.locationOdooId,
           hourMeter: _tryParseDouble(draft.hourMeter),
-          fuelMeter: draft.fuelMeter.trim().isEmpty ? null : draft.fuelMeter.trim(),
+          fuelMeter: draft.fuelMeter.trim().isEmpty
+              ? null
+              : draft.fuelMeter.trim(),
           forageSignature: forageSignature,
           clientSignature: clientSignature,
           remarks: null,
           syncStatus: 'pending',
         );
         _currentFeuilleLocalId = feuilleLocalId;
-        ref.read(reportDraftProvider.notifier).setCurrentFeuille(
-          feuilleLocalId: feuilleLocalId,
-          mobileUuid: currentMobileUuid,
-          syncStatus: 'pending',
-        );
+        ref
+            .read(reportDraftProvider.notifier)
+            .setCurrentFeuille(
+              feuilleLocalId: feuilleLocalId,
+              mobileUuid: currentMobileUuid,
+              syncStatus: 'pending',
+            );
       }
 
       var sequence = 10;
@@ -622,23 +682,31 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
         await db.saveLocalFeuilleMateriel(
           feuilleLocalId: feuilleLocalId,
           mobileUuid: uuid.v4(),
-          description: row.description.trim().isEmpty ? null : row.description.trim(),
+          description: row.description.trim().isEmpty
+              ? null
+              : row.description.trim(),
           serialNumber: row.serie.trim().isEmpty ? null : row.serie.trim(),
           quantity: _tryParseDouble(row.quantite),
-          observation: row.observation.trim().isEmpty ? null : row.observation.trim(),
+          observation: row.observation.trim().isEmpty
+              ? null
+              : row.observation.trim(),
           status: row.status.trim().isEmpty ? null : row.status.trim(),
         );
       }
     });
 
-    ref.read(reportDraftProvider.notifier).setCurrentFeuille(
-      feuilleLocalId: feuilleLocalId,
-      mobileUuid: ref.read(reportDraftProvider).currentMobileUuid ?? _existingMobileUuid ?? '',
-      syncStatus: 'pending',
-    );
+    ref
+        .read(reportDraftProvider.notifier)
+        .setCurrentFeuille(
+          feuilleLocalId: feuilleLocalId,
+          mobileUuid:
+              ref.read(reportDraftProvider).currentMobileUuid ??
+              _existingMobileUuid ??
+              '',
+          syncStatus: 'pending',
+        );
     return feuilleLocalId;
   }
-
 
   Future<void> _showSuccessDialog(String message) async {
     await showDialog<void>(
@@ -743,10 +811,14 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
 
   String _normalizeQuartForSync(String quart) {
     final normalized = quart.trim().toLowerCase();
-    if (normalized == 'day/jour' || normalized == 'day' || normalized == 'jour') {
+    if (normalized == 'day/jour' ||
+        normalized == 'day' ||
+        normalized == 'jour') {
       return 'jour';
     }
-    if (normalized == 'night/nuit' || normalized == 'night' || normalized == 'nuit') {
+    if (normalized == 'night/nuit' ||
+        normalized == 'night' ||
+        normalized == 'nuit') {
       return 'nuit';
     }
     return quart;
@@ -830,13 +902,15 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
     final description = (row.description ?? '').trim().toLowerCase();
 
     for (final item in references) {
-      if (reference.isNotEmpty && (item.reference ?? '').trim().toLowerCase() == reference) {
+      if (reference.isNotEmpty &&
+          (item.reference ?? '').trim().toLowerCase() == reference) {
         return item.odooId;
       }
     }
 
     for (final item in references) {
-      if (description.isNotEmpty && item.description.trim().toLowerCase() == description) {
+      if (description.isNotEmpty &&
+          item.description.trim().toLowerCase() == description) {
         return item.odooId;
       }
     }
@@ -917,7 +991,9 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
                 feuille.dateForage,
                 row.dateDebut,
               );
-              final startReference = startDateTime != null ? DateTime.tryParse(startDateTime) : null;
+              final startReference = startDateTime != null
+                  ? DateTime.tryParse(startDateTime)
+                  : null;
               final endDateTime = _combineDateAndTime(
                 feuille.dateForage,
                 row.dateFin,
@@ -932,7 +1008,8 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
                 'observation': row.observation,
                 'absent': row.absent,
               };
-            }).toList(growable: false),
+            })
+            .toList(growable: false),
         fuels: fuels
             .map(
               (row) => <String, dynamic>{
@@ -948,7 +1025,10 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
             .toList(growable: false),
         materiels: materiels
             .map((row) {
-              final materialOdooId = _resolveMaterialOdooId(row, materialReferences);
+              final materialOdooId = _resolveMaterialOdooId(
+                row,
+                materialReferences,
+              );
               if (materialOdooId == null) {
                 throw Exception(
                   'Impossible de retrouver le materiel pour la reference "${row.serialNumber ?? row.description ?? ''}"',
@@ -962,7 +1042,8 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
                 'observation': row.observation,
                 'status': row.status,
               };
-            }).toList(growable: false),
+            })
+            .toList(growable: false),
       );
 
       final feuilleOdooId = (result['odoo_id'] as num?)?.toInt();
@@ -986,9 +1067,7 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
         return;
       }
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(
-          builder: (_) => const PostLoginMenuScreen(),
-        ),
+        MaterialPageRoute(builder: (_) => const PostLoginMenuScreen()),
         (route) => false,
       );
     } on DioException catch (e) {
@@ -1050,7 +1129,11 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
 
   Task? _findTaskForTimeRow(ReportTimeLogDraft row) {
     if (row.selectedTaskOdooId != null) {
-      final task = _findByOdooId<Task>(_tasks, row.selectedTaskOdooId, (item) => item.odooId);
+      final task = _findByOdooId<Task>(
+        _tasks,
+        row.selectedTaskOdooId,
+        (item) => item.odooId,
+      );
       if (task != null) {
         return task;
       }
@@ -1075,7 +1158,8 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
     if (task == null) {
       return false;
     }
-    return (task.categorie ?? '').trim() == '1' && (task.categorieActivity ?? '').trim() == '3';
+    return (task.categorie ?? '').trim() == '1' &&
+        (task.categorieActivity ?? '').trim() == '3';
   }
 
   int _parseDurationMinutes(String value) {
@@ -1094,12 +1178,18 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
 
   int get _totalMetersDrill {
     final draft = ref.read(reportDraftProvider);
-    return draft.timeLogs.fold<int>(0, (sum, row) => sum + _parseInt(row.total));
+    return draft.timeLogs.fold<int>(
+      0,
+      (sum, row) => sum + _parseInt(row.total),
+    );
   }
 
   double get _totalFuel {
     final draft = ref.read(reportDraftProvider);
-    return draft.fuelLogs.fold<double>(0, (sum, row) => sum + _parseDouble(row.qtyFuel));
+    return draft.fuelLogs.fold<double>(
+      0,
+      (sum, row) => sum + _parseDouble(row.qtyFuel),
+    );
   }
 
   int get _drillingMinutesWithMeterage {
@@ -1152,7 +1242,8 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
 
   bool _isSupervisorRole(String fonction) {
     final normalized = fonction.trim().toLowerCase();
-    return normalized.contains('superviseur') || normalized.contains('supervisor');
+    return normalized.contains('superviseur') ||
+        normalized.contains('supervisor');
   }
 
   String get _superviseurName {
@@ -1196,11 +1287,12 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: _border),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x14000000),
-            blurRadius: 18,
-            offset: Offset(0, 10),
+            color: Color(0x0F13233F),
+            blurRadius: 14,
+            offset: Offset(0, 6),
           ),
         ],
       ),
@@ -1226,18 +1318,19 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
                     title,
                     style: const TextStyle(
                       fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF172033),
+                      fontWeight: FontWeight.w900,
+                      color: _textDark,
                     ),
                   ),
                 ),
                 if (onEdit != null)
                   TextButton.icon(
                     onPressed: onEdit,
-                    icon: const Icon(Icons.edit_outlined, size: 16),
+                    icon: const Icon(Icons.edit_outlined, size: 18),
                     label: const Text('Modifier'),
                     style: TextButton.styleFrom(
                       foregroundColor: accent,
+                      textStyle: const TextStyle(fontWeight: FontWeight.w800),
                     ),
                   ),
               ],
@@ -1250,7 +1343,11 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
     );
   }
 
-  Widget _buildHeaderField(String label, String value, {bool emphasize = false}) {
+  Widget _buildHeaderField(
+    String label,
+    String value, {
+    bool emphasize = false,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
@@ -1264,7 +1361,9 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: emphasize ? FontWeight.w700 : FontWeight.w600,
-                color: emphasize ? const Color(0xFF18243E) : const Color(0xFF69758C),
+                color: emphasize
+                    ? const Color(0xFF18243E)
+                    : const Color(0xFF69758C),
               ),
             ),
           ),
@@ -1272,15 +1371,16 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
-                color: const Color(0xFFF4F7FB),
+                color: _fieldBg,
                 borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: _border),
               ),
               child: Text(
                 value.isEmpty ? '--' : value,
                 style: const TextStyle(
                   fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF1A2740),
+                  fontWeight: FontWeight.w700,
+                  color: _textDark,
                 ),
               ),
             ),
@@ -1300,7 +1400,10 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [color.withValues(alpha: 0.16), color.withValues(alpha: 0.07)],
+          colors: [
+            color.withValues(alpha: 0.16),
+            color.withValues(alpha: 0.07),
+          ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -1348,16 +1451,13 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 14),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFD),
+        color: _fieldBg,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE4EAF3)),
+        border: Border.all(color: _border),
       ),
       child: Text(
         label,
-        style: const TextStyle(
-          color: Color(0xFF6F7A8F),
-          fontWeight: FontWeight.w600,
-        ),
+        style: const TextStyle(color: _muted, fontWeight: FontWeight.w700),
       ),
     );
   }
@@ -1374,8 +1474,8 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
               left,
               style: const TextStyle(
                 fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF1B2940),
+                fontWeight: FontWeight.w800,
+                color: _textDark,
               ),
             ),
           ),
@@ -1425,7 +1525,10 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFDCEBFF),
                       borderRadius: BorderRadius.circular(999),
@@ -1456,11 +1559,16 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
                         projectDateDN: draft.projectDateDN,
                         foreuseOdooId: draft.foreuseOdooId ?? 0,
                         locationOdooId: draft.locationOdooId ?? 0,
-                        currentFeuilleLocalId: draft.currentFeuilleLocalId ?? _currentFeuilleLocalId,
+                        currentFeuilleLocalId:
+                            draft.currentFeuilleLocalId ??
+                            _currentFeuilleLocalId,
                         initialEditIndex: index,
                       ),
                     ),
-                    icon: const Icon(Icons.edit_outlined, color: Color(0xFF2457C5)),
+                    icon: const Icon(
+                      Icons.edit_outlined,
+                      color: Color(0xFF2457C5),
+                    ),
                     tooltip: 'Modifier cette ligne',
                   ),
                 ],
@@ -1468,9 +1576,18 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
               const SizedBox(height: 12),
               _buildInfoRow('Tache', taskLabel),
               _buildInfoRow('Hole No.', row.holeNo.isEmpty ? '--' : row.holeNo),
-              _buildInfoRow('De / A', '${row.fromDe.isEmpty ? '0' : row.fromDe} -> ${row.toA.isEmpty ? '0' : row.toA}'),
-              _buildInfoRow('Total metres', row.total.isEmpty ? '0' : row.total),
-              _buildInfoRow('Commentaire', row.commentaire.isEmpty ? '--' : row.commentaire),
+              _buildInfoRow(
+                'De / A',
+                '${row.fromDe.isEmpty ? '0' : row.fromDe} -> ${row.toA.isEmpty ? '0' : row.toA}',
+              ),
+              _buildInfoRow(
+                'Total metres',
+                row.total.isEmpty ? '0' : row.total,
+              ),
+              _buildInfoRow(
+                'Commentaire',
+                row.commentaire.isEmpty ? '--' : row.commentaire,
+              ),
             ],
           ),
         );
@@ -1512,7 +1629,10 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
                   ),
                   if (row.isAbsent)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFFFE2E2),
                         borderRadius: BorderRadius.circular(999),
@@ -1528,8 +1648,14 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
                 ],
               ),
               const SizedBox(height: 10),
-              _buildInfoRow('Fonction', row.fonction.isEmpty ? '--' : row.fonction),
-              _buildInfoRow('Horaire', '${row.hDebut.isEmpty ? '--:--' : row.hDebut} -> ${row.hFin.isEmpty ? '--:--' : row.hFin}'),
+              _buildInfoRow(
+                'Fonction',
+                row.fonction.isEmpty ? '--' : row.fonction,
+              ),
+              _buildInfoRow(
+                'Horaire',
+                '${row.hDebut.isEmpty ? '--:--' : row.hDebut} -> ${row.hFin.isEmpty ? '--:--' : row.hFin}',
+              ),
               _buildInfoRow('Total', row.total.isEmpty ? '--:--' : row.total),
               _buildInfoRow('Observation', row.obs.isEmpty ? '--' : row.obs),
             ],
@@ -1561,12 +1687,22 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
             children: [
               Text(
                 row.description.isEmpty ? '--' : row.description,
-                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: Color(0xFF18243E)),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 15,
+                  color: Color(0xFF18243E),
+                ),
               ),
               const SizedBox(height: 10),
               _buildInfoRow('Serie', row.serie.isEmpty ? '--' : row.serie),
-              _buildInfoRow('Quantite', row.quantite.isEmpty ? '0' : row.quantite),
-              _buildInfoRow('Observation', row.observation.isEmpty ? '--' : row.observation),
+              _buildInfoRow(
+                'Quantite',
+                row.quantite.isEmpty ? '0' : row.quantite,
+              ),
+              _buildInfoRow(
+                'Observation',
+                row.observation.isEmpty ? '--' : row.observation,
+              ),
               _buildInfoRow('Status', row.status.isEmpty ? '--' : row.status),
             ],
           ),
@@ -1597,12 +1733,25 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
             children: [
               Text(
                 row.equipement.isEmpty ? '--' : row.equipement,
-                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: Color(0xFF18243E)),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 15,
+                  color: Color(0xFF18243E),
+                ),
               ),
               const SizedBox(height: 10),
-              _buildInfoRow('Qty Fuel', row.qtyFuel.isEmpty ? '0' : row.qtyFuel),
-              _buildInfoRow('Horaire equip.', '${row.hDebut.isEmpty ? '--:--' : row.hDebut} -> ${row.hFin.isEmpty ? '--:--' : row.hFin}'),
-              _buildInfoRow('Horaire ravi.', '${row.hDebutRavi.isEmpty ? '--:--' : row.hDebutRavi} -> ${row.hFinRavi.isEmpty ? '--:--' : row.hFinRavi}'),
+              _buildInfoRow(
+                'Qty Fuel',
+                row.qtyFuel.isEmpty ? '0' : row.qtyFuel,
+              ),
+              _buildInfoRow(
+                'Horaire equip.',
+                '${row.hDebut.isEmpty ? '--:--' : row.hDebut} -> ${row.hFin.isEmpty ? '--:--' : row.hFin}',
+              ),
+              _buildInfoRow(
+                'Horaire ravi.',
+                '${row.hDebutRavi.isEmpty ? '--:--' : row.hDebutRavi} -> ${row.hFinRavi.isEmpty ? '--:--' : row.hFinRavi}',
+              ),
             ],
           ),
         );
@@ -1610,7 +1759,11 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
     );
   }
 
-  void _addSignaturePoint(List<Offset?> points, Offset point, VoidCallback onChanged) {
+  void _addSignaturePoint(
+    List<Offset?> points,
+    Offset point,
+    VoidCallback onChanged,
+  ) {
     setState(() {
       points.add(point);
     });
@@ -1668,8 +1821,9 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
     required VoidCallback onUnlock,
   }) {
     final hasSignature = points.any((point) => point != null);
-    final existingSignatureBytes =
-        !hasSignature ? _decodeSignatureImage(existingSignatureBase64) : null;
+    final existingSignatureBytes = !hasSignature
+        ? _decodeSignatureImage(existingSignatureBase64)
+        : null;
     final showExistingSignature = existingSignatureBytes != null;
 
     return Container(
@@ -1766,9 +1920,7 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
                         : const SizedBox.shrink(),
                   ),
                   Positioned.fill(
-                    child: CustomPaint(
-                      painter: _SignaturePainter(points),
-                    ),
+                    child: CustomPaint(painter: _SignaturePainter(points)),
                   ),
                   if (!isLocked)
                     Positioned.fill(
@@ -1795,9 +1947,18 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
                         },
                         child: GestureDetector(
                           behavior: HitTestBehavior.opaque,
-                          onPanStart: (details) => _addSignaturePoint(points, details.localPosition, onChanged),
-                          onPanUpdate: (details) => _addSignaturePoint(points, details.localPosition, onChanged),
-                          onPanEnd: (_) => _endSignatureStroke(points, onChanged),
+                          onPanStart: (details) => _addSignaturePoint(
+                            points,
+                            details.localPosition,
+                            onChanged,
+                          ),
+                          onPanUpdate: (details) => _addSignaturePoint(
+                            points,
+                            details.localPosition,
+                            onChanged,
+                          ),
+                          onPanEnd: (_) =>
+                              _endSignatureStroke(points, onChanged),
                         ),
                       ),
                     ),
@@ -1806,16 +1967,25 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
                       right: 8,
                       top: 8,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF2457C5).withValues(alpha: 0.08),
+                          color: const Color(
+                            0xFF2457C5,
+                          ).withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(999),
                           border: Border.all(color: const Color(0xFFD7E0ED)),
                         ),
                         child: const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.lock_outline, size: 14, color: Color(0xFF2457C5)),
+                            Icon(
+                              Icons.lock_outline,
+                              size: 14,
+                              color: Color(0xFF2457C5),
+                            ),
                             SizedBox(width: 4),
                             Text(
                               'Verrouille',
@@ -1903,7 +2073,8 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
                 },
                 onChanged: _saveClientSignature,
                 isLocked: _isClientSignatureLocked,
-                onUnlock: () => setState(() => _isClientSignatureLocked = false),
+                onUnlock: () =>
+                    setState(() => _isClientSignatureLocked = false),
               ),
               const SizedBox(height: 14),
               _buildSignaturePanel(
@@ -1914,11 +2085,15 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
                 onClear: () {
                   setState(() => _isCompanySignatureLocked = false);
                   _existingForageSignature = null;
-                  _clearSignature(_companySignaturePoints, _saveCompanySignature);
+                  _clearSignature(
+                    _companySignaturePoints,
+                    _saveCompanySignature,
+                  );
                 },
                 onChanged: _saveCompanySignature,
                 isLocked: _isCompanySignatureLocked,
-                onUnlock: () => setState(() => _isCompanySignatureLocked = false),
+                onUnlock: () =>
+                    setState(() => _isCompanySignatureLocked = false),
               ),
             ],
           );
@@ -1940,7 +2115,8 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
                 },
                 onChanged: _saveClientSignature,
                 isLocked: _isClientSignatureLocked,
-                onUnlock: () => setState(() => _isClientSignatureLocked = false),
+                onUnlock: () =>
+                    setState(() => _isClientSignatureLocked = false),
               ),
             ),
             const SizedBox(width: 14),
@@ -1953,11 +2129,15 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
                 onClear: () {
                   setState(() => _isCompanySignatureLocked = false);
                   _existingForageSignature = null;
-                  _clearSignature(_companySignaturePoints, _saveCompanySignature);
+                  _clearSignature(
+                    _companySignaturePoints,
+                    _saveCompanySignature,
+                  );
                 },
                 onChanged: _saveCompanySignature,
                 isLocked: _isCompanySignatureLocked,
-                onUnlock: () => setState(() => _isCompanySignatureLocked = false),
+                onUnlock: () =>
+                    setState(() => _isCompanySignatureLocked = false),
               ),
             ),
           ],
@@ -1967,39 +2147,74 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
   }
 
   void _openScreen(Widget screen) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => screen),
-    );
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
   }
 
-  @override
   Widget build(BuildContext context) {
     final draft = ref.watch(reportDraftProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF3F6FB),
+      backgroundColor: const Color(0xFFF4F7FB),
       appBar: AppBar(
-        backgroundColor: const Color(0xFFF3F6FB),
+        backgroundColor: _softBg,
         elevation: 0,
-        centerTitle: true,
-        title: const Text(
-          'RECAPITULATIF FINAL',
-          style: TextStyle(
-            color: Color(0xFF19243A),
-            fontSize: 24,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 0.3,
+        scrolledUnderElevation: 0,
+        centerTitle: false,
+        titleSpacing: 6,
+        leadingWidth: 68,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 12),
+          child: IconButton(
+            tooltip: 'Retour',
+            onPressed: () => Navigator.of(context).maybePop(),
+            style: IconButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: _designNavy,
+              side: const BorderSide(color: Color(0xFFE3E8F0)),
+            ),
+            icon: const Icon(Icons.arrow_back_rounded, size: 20),
           ),
+        ),
+        title: Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE3E8F0)),
+              ),
+              child: Image.asset(
+                'assets/images/aurora_logo.png',
+                fit: BoxFit.contain,
+              ),
+            ),
+            const SizedBox(width: 10),
+            const Flexible(
+              child: Text(
+                'Récapitulatif final',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: _textDark,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator(color: _accentOrange))
           : Container(
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Color(0xFFF3F6FB), Color(0xFFEAF0F8)],
+                  colors: [Color(0xFFF4F7FB), Color(0xFFF4F7FB)],
                 ),
               ),
               child: ListView(
@@ -2017,34 +2232,58 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(28),
                       gradient: const LinearGradient(
-                        colors: [Color(0xFF10213C), Color(0xFF274D7E)],
+                        colors: [_designNavy, _designNavyLight],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
                       boxShadow: const [
                         BoxShadow(
-                          color: Color(0x22000000),
-                          blurRadius: 24,
-                          offset: Offset(0, 12),
+                          color: Color(0x2213233F),
+                          blurRadius: 22,
+                          offset: Offset(0, 14),
                         ),
                       ],
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: const BoxDecoration(
+                                color: _accentOrange,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            const Text(
+                              'RAPPORT DE FORAGE',
+                              style: TextStyle(
+                                color: _accentOrange,
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 1.4,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
                         const Text(
-                          'Resumé du Rapport de Forage',
+                          'Résumé du rapport de forage',
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 24,
                             fontWeight: FontWeight.w900,
+                            letterSpacing: -0.3,
                           ),
                         ),
                         const SizedBox(height: 8),
-                        const Text(
-                          'Verification complete avant enregistrement local',
+                        Text(
+                          'Vérification complète avant enregistrement local',
                           style: TextStyle(
-                            color: Color(0xFFD9E6F7),
+                            color: Colors.white.withValues(alpha: 0.72),
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
                           ),
@@ -2054,10 +2293,22 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
                           spacing: 10,
                           runSpacing: 10,
                           children: [
-                            _buildHeroChip(Icons.approval_outlined, draft.quart ?? '--'),
-                            _buildHeroChip(Icons.precision_manufacturing_outlined, _foreuse?.name ?? '--'),
-                            _buildHeroChip(Icons.location_on_outlined, _location?.name ?? '--'),
-                            _buildHeroChip(Icons.calendar_today_outlined, draft.dateText ?? '--'),
+                            _buildHeroChip(
+                              Icons.approval_outlined,
+                              draft.quart ?? '--',
+                            ),
+                            _buildHeroChip(
+                              Icons.precision_manufacturing_outlined,
+                              _foreuse?.name ?? '--',
+                            ),
+                            _buildHeroChip(
+                              Icons.location_on_outlined,
+                              _location?.name ?? '--',
+                            ),
+                            _buildHeroChip(
+                              Icons.calendar_today_outlined,
+                              draft.dateText ?? '--',
+                            ),
                           ],
                         ),
                       ],
@@ -2083,9 +2334,13 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
                         return Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Expanded(child: _buildHeaderColumn(leftColumn: true)),
+                            Expanded(
+                              child: _buildHeaderColumn(leftColumn: true),
+                            ),
                             const SizedBox(width: 24),
-                            Expanded(child: _buildHeaderColumn(leftColumn: false)),
+                            Expanded(
+                              child: _buildHeaderColumn(leftColumn: false),
+                            ),
                           ],
                         );
                       },
@@ -2096,25 +2351,53 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
                     icon: Icons.insights_outlined,
                     accent: const Color(0xFF0F9D8A),
                     child: GridView.count(
-                      crossAxisCount: MediaQuery.of(context).size.width > 700 ? 4 : 2,
+                      crossAxisCount: MediaQuery.of(context).size.width > 700
+                          ? 4
+                          : 2,
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       crossAxisSpacing: 12,
                       mainAxisSpacing: 12,
                       childAspectRatio: 1.55,
                       children: [
-                        _buildSummaryTile('Lignes temps', '${draft.timeLogs.length}', const Color(0xFF2457C5)),
-                        _buildSummaryTile('Employes', '${draft.staffLogs.length}', const Color(0xFFE2802E)),
-                        _buildSummaryTile('Materiels', '${draft.materielLogs.length}', const Color(0xFF0F9D8A)),
-                        _buildSummaryTile('Equip Aux/Fuel', '${draft.fuelLogs.length}', const Color(0xFF8A3FFC)),
+                        _buildSummaryTile(
+                          'Lignes temps',
+                          '${draft.timeLogs.length}',
+                          const Color(0xFF2457C5),
+                        ),
+                        _buildSummaryTile(
+                          'Employes',
+                          '${draft.staffLogs.length}',
+                          const Color(0xFFE2802E),
+                        ),
+                        _buildSummaryTile(
+                          'Materiels',
+                          '${draft.materielLogs.length}',
+                          const Color(0xFF0F9D8A),
+                        ),
+                        _buildSummaryTile(
+                          'Equip Aux/Fuel',
+                          '${draft.fuelLogs.length}',
+                          const Color(0xFF8A3FFC),
+                        ),
                         _buildSummaryTile(
                           'Metres drill',
                           '$_totalMetersDrill',
                           const Color(0xFFDB4437),
-                          secondaryValue: _penetrationRateText == '0' ? null : 'Pen. Rate: $_penetrationRateText',
+                          secondaryValue: _penetrationRateText == '0'
+                              ? null
+                              : 'Pen. Rate: $_penetrationRateText',
                         ),
-                        _buildSummaryTile('Heures', _totalHours, const Color(0xFF1F7A8C)),
-                        _buildSummaryTile('Fuel total', _formatFuel(_totalFuel), const Color(0xFF6C9A1F)),
+                        _buildSummaryTile(
+                          'Heures',
+                          _totalHours,
+                          const Color(0xFF1F7A8C),
+                        ),
+                        _buildSummaryTile(
+                          'Fuel total',
+                          _formatFuel(_totalFuel),
+                          const Color(0xFF6C9A1F),
+                        ),
                         _buildSummaryTile(
                           'Absents',
                           '${draft.staffLogs.where((row) => row.isAbsent).length}',
@@ -2136,7 +2419,9 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
                         projectDateDN: draft.projectDateDN,
                         foreuseOdooId: draft.foreuseOdooId ?? 0,
                         locationOdooId: draft.locationOdooId ?? 0,
-                        currentFeuilleLocalId: draft.currentFeuilleLocalId ?? _currentFeuilleLocalId,
+                        currentFeuilleLocalId:
+                            draft.currentFeuilleLocalId ??
+                            _currentFeuilleLocalId,
                         initialEditIndex: draft.timeLogs.length == 1 ? 0 : null,
                       ),
                     ),
@@ -2176,20 +2461,30 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
                       final isNarrow = constraints.maxWidth < 560;
                       final backButton = OutlinedButton.icon(
                         onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(Icons.arrow_back_ios_new, size: 16),
+                        icon: const Icon(Icons.arrow_back_rounded, size: 18),
                         label: const Flexible(
-                          child: Text('Precedent', overflow: TextOverflow.ellipsis),
+                          child: Text(
+                            'Precedent',
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF23324D),
-                          side: const BorderSide(color: Color(0xFFCBD6E5)),
+                          foregroundColor: _designNavy,
+                          side: const BorderSide(color: _border),
                           padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                          textStyle: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(18),
+                          ),
                           backgroundColor: Colors.white,
                         ),
                       );
-                      final syncButton = ElevatedButton.icon(
-                        onPressed: (_saving || _syncing) ? null : _syncCurrentFeuille,
+                      final syncButton = FilledButton.icon(
+                        onPressed: (_saving || _syncing)
+                            ? null
+                            : _syncCurrentFeuille,
                         icon: _syncing
                             ? const SizedBox(
                                 width: 18,
@@ -2206,23 +2501,37 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        style: ElevatedButton.styleFrom(
+                        style: FilledButton.styleFrom(
                           backgroundColor: const Color(0xFF0F9D8A),
                           foregroundColor: Colors.white,
-                          elevation: 0,
+                          disabledBackgroundColor: const Color(
+                            0xFF0F9D8A,
+                          ).withValues(alpha: 0.4),
+                          disabledForegroundColor: Colors.white.withValues(
+                            alpha: 0.7,
+                          ),
                           padding: const EdgeInsets.symmetric(vertical: 18),
+                          textStyle: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                          ),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(18),
                           ),
                         ),
                       );
-                      final saveButton = ElevatedButton.icon(
-                        onPressed: (_saving || _syncing) ? null : _saveAllLocally,
+                      final saveButton = FilledButton.icon(
+                        onPressed: (_saving || _syncing)
+                            ? null
+                            : _saveAllLocally,
                         icon: _saving
                             ? const SizedBox(
                                 width: 18,
                                 height: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: _designNavy,
+                                ),
                               )
                             : const Icon(Icons.save_outlined),
                         label: Flexible(
@@ -2235,12 +2544,23 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF13233F),
-                          foregroundColor: Colors.white,
-                          elevation: 0,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: _accentOrange,
+                          foregroundColor: _designNavy,
+                          disabledBackgroundColor: _accentOrange.withValues(
+                            alpha: 0.4,
+                          ),
+                          disabledForegroundColor: _designNavy.withValues(
+                            alpha: 0.6,
+                          ),
                           padding: const EdgeInsets.symmetric(vertical: 18),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                          textStyle: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(18),
+                          ),
                         ),
                       );
 
@@ -2283,20 +2603,20 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.12),
+        color: Colors.white.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(999),
         border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: Colors.white, size: 16),
+          Icon(icon, color: _accentOrange, size: 16),
           const SizedBox(width: 8),
           Text(
             text,
             style: const TextStyle(
               color: Colors.white,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w800,
             ),
           ),
         ],
@@ -2312,31 +2632,45 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
           _buildHeaderField('Projet', _project?.name ?? '--', emphasize: true),
           _buildHeaderField('Client', _project?.partnerName ?? '--'),
           _buildHeaderField('Quart', draft.quart ?? '--', emphasize: true),
-          _buildHeaderField('Foreuse / Drill', _foreuse?.name ?? '--', emphasize: true),
+          _buildHeaderField(
+            'Foreuse / Drill',
+            _foreuse?.name ?? '--',
+            emphasize: true,
+          ),
           _buildHeaderField('Superviseur', _superviseurName),
           _buildHeaderField('Operateur', _operateurNames),
-         
         ],
       );
     }
 
     return Column(
       children: [
-        _buildHeaderField('Date de forage', draft.dateText ?? '--', emphasize: true),
+        _buildHeaderField(
+          'Date de forage',
+          draft.dateText ?? '--',
+          emphasize: true,
+        ),
         _buildHeaderField('Location', _location?.name ?? '--', emphasize: true),
         _buildHeaderField('Total meters drill', '$_totalMetersDrill'),
         _buildHeaderField(
           'Hour meter / Compteur horaire',
-          _hourMeterController.text.trim().isEmpty ? '--' : _hourMeterController.text.trim(),
+          _hourMeterController.text.trim().isEmpty
+              ? '--'
+              : _hourMeterController.text.trim(),
           emphasize: true,
         ),
-         _buildHeaderField(
-            'Fuel meter / Compteur carburant',
-            _fuelMeterController.text.trim().isEmpty ? '--' : _fuelMeterController.text.trim(),
-            emphasize: true,
-          ),
+        _buildHeaderField(
+          'Fuel meter / Compteur carburant',
+          _fuelMeterController.text.trim().isEmpty
+              ? '--'
+              : _fuelMeterController.text.trim(),
+          emphasize: true,
+        ),
         // _buildHeaderField('Compteur d\'horaires de forage', _totalHours),
-        _buildHeaderField('Fuel supplied / Carburant approvisionne', _formatFuel(_totalFuel)),
+        _buildHeaderField(
+          'Fuel supplied / Carburant approvisionne',
+          _formatFuel(_totalFuel),
+        ),
       ],
     );
   }
