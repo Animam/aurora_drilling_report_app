@@ -1,4 +1,4 @@
-﻿import 'dart:math' as math;
+import 'dart:math' as math;
 
 import 'package:aurora_drilling_report/data/local/db/app_database.dart';
 import 'package:aurora_drilling_report/shared/providers/app_providers.dart';
@@ -28,8 +28,8 @@ class _ConsumableLogDraft {
   }
 
   _ConsumableLogDraft.fromReportDraft(ReportMaterielDraft draft)
-      : materialOdooId = draft.materialOdooId,
-        showObservation = draft.observation.trim().isNotEmpty {
+    : materialOdooId = draft.materialOdooId,
+      showObservation = draft.observation.trim().isNotEmpty {
     descriptionController.text = draft.description;
     serie.text = draft.serie;
     quantite.text = draft.quantite;
@@ -75,16 +75,39 @@ class DrillingConsumableForm extends ConsumerStatefulWidget {
   const DrillingConsumableForm({super.key});
 
   @override
-  ConsumerState<DrillingConsumableForm> createState() => _DrillingConsumableFormState();
+  ConsumerState<DrillingConsumableForm> createState() =>
+      _DrillingConsumableFormState();
 }
 
-class _DrillingConsumableFormState extends ConsumerState<DrillingConsumableForm> {
+class _DrillingConsumableFormState
+    extends ConsumerState<DrillingConsumableForm> {
   static const Map<String, String> _statusOptions = {
     '': 'Aucun',
     '1': 'Usee',
     '2': 'En panne',
     '3': 'Bon Etat',
   };
+
+  static const Color _accentOrange = Color(0xFFF18E28);
+  static const Color _designNavy = Color(0xFF13233F);
+  static const Color _designNavyLight = Color(0xFF1E3A5F);
+  static const Color _textDark = Color(0xFF18243E);
+  static const Color _muted = Color(0xFF69758C);
+  static const Color _border = Color(0xFFD7DFEA);
+  static const Color _softBg = Color(0xFFFDF8E1);
+  static const Color _fieldBg = Color(0xFFF3F6FB);
+
+  Widget _buildFieldLabel(String label) {
+    return Text(
+      label.toUpperCase(),
+      style: const TextStyle(
+        color: _muted,
+        fontSize: 11.5,
+        fontWeight: FontWeight.w800,
+        letterSpacing: 1.1,
+      ),
+    );
+  }
 
   final List<_ConsumableLogDraft> _items = [];
   List<MaterialReference> _materialReferences = [];
@@ -96,7 +119,9 @@ class _DrillingConsumableFormState extends ConsumerState<DrillingConsumableForm>
     super.initState();
     final draft = ref.read(reportDraftProvider);
     if (draft.materielLogs.isNotEmpty) {
-      _items.addAll(draft.materielLogs.map(_ConsumableLogDraft.fromReportDraft));
+      _items.addAll(
+        draft.materielLogs.map(_ConsumableLogDraft.fromReportDraft),
+      );
     }
     Future.microtask(_loadMaterialReferences);
   }
@@ -122,7 +147,10 @@ class _DrillingConsumableFormState extends ConsumerState<DrillingConsumableForm>
     try {
       final db = ref.read(appDatabaseProvider);
       final materials = await db.getAllMaterialReferences();
-      materials.sort((a, b) => a.description.toLowerCase().compareTo(b.description.toLowerCase()));
+      materials.sort(
+        (a, b) =>
+            a.description.toLowerCase().compareTo(b.description.toLowerCase()),
+      );
 
       if (!mounted) {
         return;
@@ -174,7 +202,9 @@ class _DrillingConsumableFormState extends ConsumerState<DrillingConsumableForm>
       if (!mounted) {
         return;
       }
-      ref.read(reportDraftProvider.notifier).setMaterielLogs(
+      ref
+          .read(reportDraftProvider.notifier)
+          .setMaterielLogs(
             _items.map((item) => item.toReportDraft()).toList(growable: false),
           );
       _autoSaveMaterielLogs();
@@ -190,18 +220,34 @@ class _DrillingConsumableFormState extends ConsumerState<DrillingConsumableForm>
 
     final uuid = const Uuid();
     final rows = _items
-        .where((item) => item.descriptionController.text.trim().isNotEmpty || item.serie.text.trim().isNotEmpty)
-        .map((item) => <String, dynamic>{
-              'mobile_uuid': uuid.v4(),
-              'description': item.descriptionController.text.trim().isEmpty ? null : item.descriptionController.text.trim(),
-              'serial_number': item.serie.text.trim().isEmpty ? null : item.serie.text.trim(),
-              'quantity': double.tryParse(item.quantite.text.trim()),
-              'observation': item.observation.text.trim().isEmpty ? null : item.observation.text.trim(),
-              'status': item.status.text.trim().isEmpty ? null : item.status.text.trim(),
-            })
+        .where(
+          (item) =>
+              item.descriptionController.text.trim().isNotEmpty ||
+              item.serie.text.trim().isNotEmpty,
+        )
+        .map(
+          (item) => <String, dynamic>{
+            'mobile_uuid': uuid.v4(),
+            'description': item.descriptionController.text.trim().isEmpty
+                ? null
+                : item.descriptionController.text.trim(),
+            'serial_number': item.serie.text.trim().isEmpty
+                ? null
+                : item.serie.text.trim(),
+            'quantity': double.tryParse(item.quantite.text.trim()),
+            'observation': item.observation.text.trim().isEmpty
+                ? null
+                : item.observation.text.trim(),
+            'status': item.status.text.trim().isEmpty
+                ? null
+                : item.status.text.trim(),
+          },
+        )
         .toList(growable: false);
 
-    await ref.read(appDatabaseProvider).replaceFeuilleMaterielsDraft(
+    await ref
+        .read(appDatabaseProvider)
+        .replaceFeuilleMaterielsDraft(
           feuilleLocalId: feuilleLocalId,
           rows: rows,
         );
@@ -225,16 +271,20 @@ class _DrillingConsumableFormState extends ConsumerState<DrillingConsumableForm>
             void applyFilter(String query) {
               final normalized = query.trim().toLowerCase();
               setDialogState(() {
-                filtered = _materialReferences.where((material) {
-                  if (_isMaterialAlreadyAdded(material.odooId)) {
-                    return false;
-                  }
-                  if (normalized.isEmpty) {
-                    return true;
-                  }
-                  final haystack = '${material.reference ?? ''} ${material.description}'.toLowerCase();
-                  return haystack.contains(normalized);
-                }).toList(growable: false);
+                filtered = _materialReferences
+                    .where((material) {
+                      if (_isMaterialAlreadyAdded(material.odooId)) {
+                        return false;
+                      }
+                      if (normalized.isEmpty) {
+                        return true;
+                      }
+                      final haystack =
+                          '${material.reference ?? ''} ${material.description}'
+                              .toLowerCase();
+                      return haystack.contains(normalized);
+                    })
+                    .toList(growable: false);
               });
             }
 
@@ -247,7 +297,9 @@ class _DrillingConsumableFormState extends ConsumerState<DrillingConsumableForm>
             final keyboardOpen = mq.viewInsets.bottom > 0;
 
             return Dialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
               insetPadding: EdgeInsets.symmetric(
                 horizontal: 16,
                 vertical: keyboardOpen ? 8 : 24,
@@ -255,30 +307,64 @@ class _DrillingConsumableFormState extends ConsumerState<DrillingConsumableForm>
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 560),
                 child: SingleChildScrollView(
-                  padding: EdgeInsets.only(bottom: mq.viewInsets.bottom.clamp(0.0, 32.0)),
+                  padding: EdgeInsets.only(
+                    bottom: mq.viewInsets.bottom.clamp(0.0, 32.0),
+                  ),
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+                    padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const Text(
-                          'Ajouter un materiel',
-                          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+                        Row(
+                          children: [
+                            Container(
+                              width: 38,
+                              height: 38,
+                              decoration: BoxDecoration(
+                                color: _accentOrange.withValues(alpha: 0.14),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(
+                                Icons.add_box_outlined,
+                                size: 20,
+                                color: _accentOrange,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            const Expanded(
+                              child: Text(
+                                'Ajouter un materiel',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 18,
+                                  color: _textDark,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 14),
                         TextField(
                           controller: controller,
                           onChanged: applyFilter,
                           decoration: InputDecoration(
-                            hintText: 'Rechercher',
-                            prefixIcon: const Icon(Icons.search),
+                            hintText: 'Rechercher un materiel',
+                            hintStyle: const TextStyle(color: _muted),
+                            prefixIcon: const Icon(Icons.search, color: _muted),
                             isDense: true,
                             filled: true,
-                            fillColor: Colors.white,
+                            fillColor: _fieldBg,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(16),
                               borderSide: BorderSide.none,
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(
+                                color: _accentOrange,
+                                width: 1.6,
+                              ),
                             ),
                           ),
                         ),
@@ -286,28 +372,49 @@ class _DrillingConsumableFormState extends ConsumerState<DrillingConsumableForm>
                         if (filtered.isEmpty)
                           const Padding(
                             padding: EdgeInsets.symmetric(vertical: 16),
-                            child: Center(child: Text('Aucun materiel disponible.')),
+                            child: Center(
+                              child: Text(
+                                'Aucun materiel disponible.',
+                                style: TextStyle(color: _muted),
+                              ),
+                            ),
                           )
                         else
                           SizedBox(
                             height: math.min(filtered.length * 72.0, 300.0),
                             child: ListView.separated(
                               itemCount: filtered.length,
-                              separatorBuilder: (context, index) => const SizedBox(height: 8),
+                              separatorBuilder: (context, index) =>
+                                  const SizedBox(height: 8),
                               itemBuilder: (context, index) {
                                 final material = filtered[index];
                                 return Material(
-                                  color: const Color(0xFFF8FAFC),
+                                  color: _fieldBg,
                                   borderRadius: BorderRadius.circular(16),
                                   child: ListTile(
                                     dense: true,
-                                    title: Text(
-                                      material.reference?.isNotEmpty == true ? material.reference! : '--',
-                                      style: const TextStyle(fontWeight: FontWeight.w800),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
                                     ),
-                                    subtitle: Text(material.description),
-                                    trailing: const Icon(Icons.add_circle_outline_rounded),
-                                    onTap: () => Navigator.pop(context, material),
+                                    title: Text(
+                                      material.reference?.isNotEmpty == true
+                                          ? material.reference!
+                                          : '--',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                        color: _textDark,
+                                      ),
+                                    ),
+                                    subtitle: Text(
+                                      material.description,
+                                      style: const TextStyle(color: _muted),
+                                    ),
+                                    trailing: const Icon(
+                                      Icons.add_circle_outline_rounded,
+                                      color: _accentOrange,
+                                    ),
+                                    onTap: () =>
+                                        Navigator.pop(context, material),
                                   ),
                                 );
                               },
@@ -318,6 +425,9 @@ class _DrillingConsumableFormState extends ConsumerState<DrillingConsumableForm>
                           alignment: Alignment.centerRight,
                           child: TextButton(
                             onPressed: () => Navigator.pop(context),
+                            style: TextButton.styleFrom(
+                              foregroundColor: _designNavy,
+                            ),
                             child: const Text('Fermer'),
                           ),
                         ),
@@ -390,13 +500,19 @@ class _DrillingConsumableFormState extends ConsumerState<DrillingConsumableForm>
     if (_loadingReferences) {
       return const Padding(
         padding: EdgeInsets.only(bottom: 16),
-        child: LinearProgressIndicator(),
+        child: LinearProgressIndicator(
+          color: _accentOrange,
+          backgroundColor: Color(0xFFF0E4BC),
+        ),
       );
     }
     if (_referenceError != null) {
       return Padding(
         padding: const EdgeInsets.only(bottom: 16),
-        child: Text(_referenceError!, style: const TextStyle(color: Colors.red)),
+        child: Text(
+          _referenceError!,
+          style: const TextStyle(color: Colors.red),
+        ),
       );
     }
     if (_materialReferences.isEmpty) {
@@ -422,19 +538,32 @@ class _DrillingConsumableFormState extends ConsumerState<DrillingConsumableForm>
     return Wrap(
       spacing: 8,
       runSpacing: 8,
-      children: _statusOptions.entries.map((entry) {
-        final selected = normalizedValue == entry.key;
-        return ChoiceChip(
-          label: Text(entry.value),
-          selected: selected,
-          onSelected: (_) {
-            setState(() {
-              item.status.text = entry.key;
-            });
-            _persistDraft();
-          },
-        );
-      }).toList(growable: false),
+      children: _statusOptions.entries
+          .map((entry) {
+            final selected = normalizedValue == entry.key;
+            return ChoiceChip(
+              label: Text(entry.value),
+              selected: selected,
+              showCheckmark: false,
+              onSelected: (_) {
+                setState(() {
+                  item.status.text = entry.key;
+                });
+                _persistDraft();
+              },
+              labelStyle: TextStyle(
+                color: _designNavy,
+                fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+              ),
+              selectedColor: _accentOrange,
+              backgroundColor: Colors.white,
+              side: BorderSide(color: selected ? _accentOrange : _border),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(999),
+              ),
+            );
+          })
+          .toList(growable: false),
     );
   }
 
@@ -444,14 +573,18 @@ class _DrillingConsumableFormState extends ConsumerState<DrillingConsumableForm>
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFD7DFEA)),
+        border: Border.all(color: _border),
       ),
       child: Row(
         children: [
           IconButton(
             visualDensity: VisualDensity.compact,
             onPressed: () => _updateQuantity(item.quantite, -1),
-            icon: const Icon(Icons.remove_circle_outline_rounded, color: Colors.redAccent),
+            icon: const Icon(
+              Icons.remove_circle_outline_rounded,
+              color: _accentOrange,
+            ),
+            tooltip: 'Diminuer',
           ),
           Expanded(
             child: TextField(
@@ -464,13 +597,21 @@ class _DrillingConsumableFormState extends ConsumerState<DrillingConsumableForm>
                 border: InputBorder.none,
                 isDense: true,
               ),
-              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+              style: const TextStyle(
+                color: _textDark,
+                fontWeight: FontWeight.w800,
+                fontSize: 18,
+              ),
             ),
           ),
           IconButton(
             visualDensity: VisualDensity.compact,
             onPressed: () => _updateQuantity(item.quantite, 1),
-            icon: const Icon(Icons.add_circle_outline_rounded, color: Colors.green),
+            icon: const Icon(
+              Icons.add_circle_outline_rounded,
+              color: _accentOrange,
+            ),
+            tooltip: 'Augmenter',
           ),
         ],
       ),
@@ -483,17 +624,19 @@ class _DrillingConsumableFormState extends ConsumerState<DrillingConsumableForm>
       onChanged: (_) => _persistDraft(),
       minLines: 2,
       maxLines: 3,
+      style: const TextStyle(color: _textDark),
       decoration: InputDecoration(
         hintText: 'Ajouter une observation si necessaire',
+        hintStyle: const TextStyle(color: _muted),
         filled: true,
-        fillColor: Colors.white,
+        fillColor: _fieldBg,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: Color(0xFF1E3A5F)),
+          borderSide: const BorderSide(color: _accentOrange, width: 1.6),
         ),
       ),
     );
@@ -506,11 +649,12 @@ class _DrillingConsumableFormState extends ConsumerState<DrillingConsumableForm>
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: _border),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x12000000),
-            blurRadius: 18,
-            offset: Offset(0, 8),
+            color: Color(0x0F13233F),
+            blurRadius: 14,
+            offset: Offset(0, 6),
           ),
         ],
       ),
@@ -526,49 +670,65 @@ class _DrillingConsumableFormState extends ConsumerState<DrillingConsumableForm>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        item.serie.text.trim().isEmpty ? '--' : item.serie.text.trim(),
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                        item.serie.text.trim().isEmpty
+                            ? '--'
+                            : item.serie.text.trim(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: _textDark,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         item.descriptionController.text.trim().isEmpty
                             ? 'Materiel non renseigne'
                             : item.descriptionController.text.trim(),
-                        style: const TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w600),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: _muted,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ],
                   ),
                 ),
                 IconButton(
                   onPressed: () => _removeItem(index),
-                  icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
+                  icon: const Icon(
+                    Icons.delete_outline_rounded,
+                    color: Colors.redAccent,
+                  ),
                   tooltip: 'Supprimer',
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5F9),
+                    color: _fieldBg,
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
                     '#${index + 1}',
-                    style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF475569)),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: _muted,
+                    ),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 16),
-            const Text(
-              'Quantite',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-            ),
+            _buildFieldLabel('Quantite'),
             const SizedBox(height: 8),
             _buildQuantityField(item),
             const SizedBox(height: 16),
-            const Text(
-              'Status',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-            ),
+            _buildFieldLabel('Status'),
             const SizedBox(height: 8),
             _buildStatusChips(item),
             const SizedBox(height: 14),
@@ -580,24 +740,39 @@ class _DrillingConsumableFormState extends ConsumerState<DrillingConsumableForm>
               },
               borderRadius: BorderRadius.circular(14),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
+                  color: _fieldBg,
                   borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: _border),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.sticky_note_2_outlined, size: 18, color: Color(0xFF475569)),
+                    const Icon(
+                      Icons.sticky_note_2_outlined,
+                      size: 18,
+                      color: _accentOrange,
+                    ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        item.observation.text.trim().isEmpty ? 'Ajouter une observation' : 'Observation renseignee',
-                        style: const TextStyle(fontWeight: FontWeight.w700),
+                        item.observation.text.trim().isEmpty
+                            ? 'Ajouter une observation'
+                            : 'Observation renseignee',
+                        style: const TextStyle(
+                          color: _textDark,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                     Icon(
-                      item.showObservation ? Icons.expand_less_rounded : Icons.expand_more_rounded,
-                      color: const Color(0xFF475569),
+                      item.showObservation
+                          ? Icons.expand_less_rounded
+                          : Icons.expand_more_rounded,
+                      color: _muted,
                     ),
                   ],
                 ),
@@ -615,33 +790,88 @@ class _DrillingConsumableFormState extends ConsumerState<DrillingConsumableForm>
 
   Widget _buildTopActions() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
+        gradient: const LinearGradient(
+          colors: [_designNavy, _designNavyLight],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x2213233F),
+            blurRadius: 22,
+            offset: Offset(0, 14),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Materiels du shift',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+          Row(
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: const BoxDecoration(
+                  color: _accentOrange,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'SHIFT EN COURS',
+                style: TextStyle(
+                  color: _accentOrange,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.4,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 12),
+          const Text(
+            'Materiel du shift',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 24,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.3,
+            ),
+          ),
+          const SizedBox(height: 8),
           Text(
             '${_items.length} materiel(s) selectionne(s) pour cette feuille.',
-            style: const TextStyle(color: Color(0xFF64748B)),
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.72),
+              fontWeight: FontWeight.w500,
+            ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 18),
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
-              onPressed: _materialReferences.isEmpty ? null : _openAddMaterialDialog,
-              icon: const Icon(Icons.add_box_outlined),
+              onPressed: _materialReferences.isEmpty
+                  ? null
+                  : _openAddMaterialDialog,
+              icon: const Icon(Icons.add_box_outlined, size: 20),
               label: const Text('Ajouter un materiel'),
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF1E3A5F),
-                padding: const EdgeInsets.symmetric(vertical: 23),
+                backgroundColor: _accentOrange,
+                foregroundColor: _designNavy,
+                disabledBackgroundColor: Colors.white.withValues(alpha: 0.18),
+                disabledForegroundColor: Colors.white.withValues(alpha: 0.6),
+                padding: const EdgeInsets.symmetric(vertical: 18),
+                textStyle: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
               ),
             ),
           ),
@@ -652,16 +882,27 @@ class _DrillingConsumableFormState extends ConsumerState<DrillingConsumableForm>
 
   Widget _buildActionButtons() {
     return Padding(
-      padding: const EdgeInsets.only(top: 10, bottom: 30),
+      padding: const EdgeInsets.only(top: 14, bottom: 24),
       child: Row(
         children: [
           Expanded(
             child: OutlinedButton.icon(
               onPressed: () => Navigator.of(context).pop(),
-              icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 16),
+              icon: const Icon(Icons.arrow_back_rounded, size: 18),
               label: const Text('Precedent'),
-              style:OutlinedButton.styleFrom(
-                 padding:  EdgeInsets.symmetric(vertical: 23)),
+              style: OutlinedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: _designNavy,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                textStyle: const TextStyle(
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w700,
+                ),
+                side: const BorderSide(color: _border),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
             ),
           ),
           const SizedBox(width: 12),
@@ -670,16 +911,22 @@ class _DrillingConsumableFormState extends ConsumerState<DrillingConsumableForm>
               onPressed: () {
                 _persistDraft();
                 Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const DrillingFuelForm(),
-                  ),
+                  MaterialPageRoute(builder: (_) => const DrillingFuelForm()),
                 );
               },
               label: const Text('Suivant'),
-              icon: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+              icon: const Icon(Icons.arrow_forward_rounded, size: 18),
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF1E3A5F),
-                padding: const EdgeInsets.symmetric(vertical: 23),
+                backgroundColor: _accentOrange,
+                foregroundColor: _designNavy,
+                padding: const EdgeInsets.symmetric(vertical: 18),
+                textStyle: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
               ),
             ),
           ),
@@ -693,13 +940,92 @@ class _DrillingConsumableFormState extends ConsumerState<DrillingConsumableForm>
     return Scaffold(
       backgroundColor: const Color(0xFFF4F7FB),
       appBar: AppBar(
-        title: const Text(
-          'Materiels',
-          style: TextStyle(fontWeight: FontWeight.w800),
-        ),
-        backgroundColor: const Color(0xFFF4F7FB),
+        backgroundColor: _softBg,
         elevation: 0,
-        centerTitle: true,
+        scrolledUnderElevation: 0,
+        centerTitle: false,
+        titleSpacing: 6,
+        leadingWidth: 68,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 12),
+          child: IconButton(
+            tooltip: 'Retour',
+            onPressed: () => Navigator.of(context).maybePop(),
+            style: IconButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: _designNavy,
+              side: const BorderSide(color: Color(0xFFE3E8F0)),
+            ),
+            icon: const Icon(Icons.arrow_back_rounded, size: 20),
+          ),
+        ),
+        title: Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE3E8F0)),
+              ),
+              child: Image.asset(
+                'assets/images/aurora_logo.png',
+                fit: BoxFit.contain,
+              ),
+            ),
+            const SizedBox(width: 10),
+            const Flexible(
+              child: Text(
+                'Materiel',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: _textDark,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: _accentOrange,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.inventory_2_outlined,
+                      size: 14,
+                      color: _designNavy,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '${_items.length}',
+                      style: const TextStyle(
+                        color: _designNavy,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -720,20 +1046,37 @@ class _DrillingConsumableFormState extends ConsumerState<DrillingConsumableForm>
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: _border),
                       ),
                       child: Column(
-                        children: const [
-                          Icon(Icons.inventory_2_outlined, size: 42, color: Color(0xFF64748B)),
-                          SizedBox(height: 12),
-                          Text(
-                            'Aucun materiel selectionne',
-                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                        children: [
+                          Container(
+                            width: 64,
+                            height: 64,
+                            decoration: BoxDecoration(
+                              color: _accentOrange.withValues(alpha: 0.12),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.inventory_2_outlined,
+                              size: 30,
+                              color: _accentOrange,
+                            ),
                           ),
-                          SizedBox(height: 8),
-                          Text(
+                          const SizedBox(height: 16),
+                          const Text(
+                            'Aucun materiel selectionne',
+                            style: TextStyle(
+                              color: _textDark,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
                             'Ajoute seulement les materiels utilises sur cette feuille.',
                             textAlign: TextAlign.center,
-                            style: TextStyle(color: Color(0xFF64748B)),
+                            style: TextStyle(color: _muted),
                           ),
                         ],
                       ),
@@ -750,6 +1093,3 @@ class _DrillingConsumableFormState extends ConsumerState<DrillingConsumableForm>
     );
   }
 }
-
-
-

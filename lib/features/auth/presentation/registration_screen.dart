@@ -1007,7 +1007,7 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
             number: '2',
             title: 'Quart / Shift',
             subtitle: quartEnabled
-                ? 'Le quart est proposé automatiquement selon le projet.'
+                ? 'Le quart est proposé automatiquement'
                 : 'Sélectionnez d\'abord une foreuse.',
             locked: !quartEnabled,
             child: _buildShiftButtons(enabled: quartEnabled),
@@ -1017,7 +1017,7 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
             number: '3',
             title: 'Location',
             subtitle: locationEnabled
-                ? 'Zone de forage rattachée au projet sélectionné.'
+                ? 'Zone de forage'
                 : 'Sélectionnez d\'abord le quart.',
             locked: !locationEnabled,
             child: _buildLocationButtons(enabled: locationEnabled),

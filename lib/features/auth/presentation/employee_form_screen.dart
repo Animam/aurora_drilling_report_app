@@ -1,4 +1,4 @@
-﻿import 'dart:math' as math;
+import 'dart:math' as math;
 
 import 'package:aurora_drilling_report/data/local/db/app_database.dart';
 import 'package:aurora_drilling_report/shared/providers/app_providers.dart';
@@ -78,6 +78,27 @@ class DrillingStaffForm extends ConsumerStatefulWidget {
 }
 
 class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
+  static const Color _accentOrange = Color(0xFFF18E28);
+  static const Color _designNavy = Color(0xFF13233F);
+  static const Color _designNavyLight = Color(0xFF1E3A5F);
+  static const Color _textDark = Color(0xFF18243E);
+  static const Color _muted = Color(0xFF69758C);
+  static const Color _border = Color(0xFFD7DFEA);
+  static const Color _softBg = Color(0xFFFDF8E1);
+  static const Color _fieldBg = Color(0xFFF3F6FB);
+
+  Widget _buildFieldLabel(String label) {
+    return Text(
+      label.toUpperCase(),
+      style: const TextStyle(
+        color: _muted,
+        fontSize: 11.5,
+        fontWeight: FontWeight.w800,
+        letterSpacing: 1.1,
+      ),
+    );
+  }
+
   final List<_StaffLogDraft> _staffLogs = [];
   List<Employee> _availableEmployees = [];
   bool _loading = true;
@@ -124,14 +145,18 @@ class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
       return;
     }
 
-    employees.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    employees.sort(
+      (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+    );
     final reportDraft = ref.read(reportDraftProvider);
 
     setState(() {
       _availableEmployees = employees;
       _staffLogs.clear();
       if (reportDraft.staffLogs.isNotEmpty) {
-        _staffLogs.addAll(reportDraft.staffLogs.map(_StaffLogDraft.fromReportDraft));
+        _staffLogs.addAll(
+          reportDraft.staffLogs.map(_StaffLogDraft.fromReportDraft),
+        );
       }
       _loading = false;
     });
@@ -142,7 +167,9 @@ class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
     if (!mounted) {
       return;
     }
-    ref.read(reportDraftProvider.notifier).setStaffLogs(
+    ref
+        .read(reportDraftProvider.notifier)
+        .setStaffLogs(
           _staffLogs.map((log) => log.toReportDraft()).toList(growable: false),
         );
     Future.microtask(_autoSaveStaffLogs);
@@ -163,20 +190,32 @@ class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
     final uuid = const Uuid();
     final rows = _staffLogs
         .where((log) => log.employeeOdooId != null)
-        .map((log) => <String, dynamic>{
-              'mobile_uuid': uuid.v4(),
-              'employee_odoo_id': log.employeeOdooId!,
-              'fonction': log.fonction.text.trim().isEmpty ? null : log.fonction.text.trim(),
-              'observation': log.obs.text.trim().isEmpty ? null : log.obs.text.trim(),
-              'date_emp': draft.dateText,
-              'date_debut': log.hDebut.text.trim().isEmpty ? null : log.hDebut.text.trim(),
-              'date_fin': log.hFin.text.trim().isEmpty ? null : log.hFin.text.trim(),
-              'difference': null,
-              'absent': log.isAbsent,
-            })
+        .map(
+          (log) => <String, dynamic>{
+            'mobile_uuid': uuid.v4(),
+            'employee_odoo_id': log.employeeOdooId!,
+            'fonction': log.fonction.text.trim().isEmpty
+                ? null
+                : log.fonction.text.trim(),
+            'observation': log.obs.text.trim().isEmpty
+                ? null
+                : log.obs.text.trim(),
+            'date_emp': draft.dateText,
+            'date_debut': log.hDebut.text.trim().isEmpty
+                ? null
+                : log.hDebut.text.trim(),
+            'date_fin': log.hFin.text.trim().isEmpty
+                ? null
+                : log.hFin.text.trim(),
+            'difference': null,
+            'absent': log.isAbsent,
+          },
+        )
         .toList(growable: false);
 
-    await ref.read(appDatabaseProvider).replaceFeuilleEmployesDraft(
+    await ref
+        .read(appDatabaseProvider)
+        .replaceFeuilleEmployesDraft(
           feuilleLocalId: feuilleLocalId,
           rows: rows,
         );
@@ -247,7 +286,10 @@ class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
     return '$hours:$minutes';
   }
 
-  List<String> _buildAllowedTimes({required double minValue, required double maxValue}) {
+  List<String> _buildAllowedTimes({
+    required double minValue,
+    required double maxValue,
+  }) {
     final minMinutes = (_normalizeForShift(minValue) * 60).round();
     final maxMinutes = (_normalizeForShift(maxValue) * 60).round();
     if (maxMinutes < minMinutes) {
@@ -274,13 +316,17 @@ class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
 
   List<String> _allowedStartTimesFor(_StaffLogDraft log) {
     final currentEnd = _parseHour(log.hFin.text);
-    final maxValue = currentEnd == null ? _shiftEndValue() : _normalizeForShift(currentEnd);
+    final maxValue = currentEnd == null
+        ? _shiftEndValue()
+        : _normalizeForShift(currentEnd);
     return _buildAllowedTimes(minValue: _shiftStartValue(), maxValue: maxValue);
   }
 
   List<String> _allowedEndTimesFor(_StaffLogDraft log) {
     final currentStart = _parseHour(log.hDebut.text);
-    final minValue = currentStart == null ? _shiftStartValue() : _normalizeForShift(currentStart);
+    final minValue = currentStart == null
+        ? _shiftStartValue()
+        : _normalizeForShift(currentStart);
     return _buildAllowedTimes(minValue: minValue, maxValue: _shiftEndValue());
   }
 
@@ -312,16 +358,17 @@ class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
           child: Column(
             children: [
               Container(
-                decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  border: const Border(bottom: BorderSide(color: Colors.black12)),
+                decoration: const BoxDecoration(
+                  color: _fieldBg,
+                  border: Border(bottom: BorderSide(color: _border)),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     TextButton(
                       onPressed: () => Navigator.pop(context),
-                      child: const Text('Annuler', style: TextStyle(color: Colors.red)),
+                      style: TextButton.styleFrom(foregroundColor: _muted),
+                      child: const Text('Annuler'),
                     ),
                     TextButton(
                       onPressed: () {
@@ -332,23 +379,37 @@ class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
                         _persistDraft();
                         Navigator.pop(context);
                       },
-                      child: const Text(
-                        'OK',
-                        style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
+                      style: TextButton.styleFrom(
+                        foregroundColor: _accentOrange,
+                        textStyle: const TextStyle(fontWeight: FontWeight.w800),
                       ),
+                      child: const Text('OK'),
                     ),
                   ],
                 ),
               ),
               Expanded(
                 child: CupertinoPicker(
-                  scrollController: FixedExtentScrollController(initialItem: selectedIndex),
+                  scrollController: FixedExtentScrollController(
+                    initialItem: selectedIndex,
+                  ),
                   itemExtent: 40,
                   onSelectedItemChanged: (value) {
                     selectedIndex = value;
                   },
                   children: allowedTimes
-                      .map((time) => Center(child: Text(time, style: const TextStyle(fontSize: 20))))
+                      .map(
+                        (time) => Center(
+                          child: Text(
+                            time,
+                            style: const TextStyle(
+                              color: _textDark,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      )
                       .toList(),
                 ),
               ),
@@ -369,36 +430,44 @@ class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
       context: context,
       builder: (context) {
         final controller = TextEditingController();
-        var filtered = _availableEmployees.where((employee) {
-          if (_isEmployeeAlreadyAdded(employee.odooId)) {
-            return false;
-          }
-          if (roleFilter == null) {
-            return true;
-          }
-          final jobName = (employee.jobName ?? '').trim().toLowerCase();
-          return roleFilter.contains(jobName);
-        }).toList(growable: false);
+        var filtered = _availableEmployees
+            .where((employee) {
+              if (_isEmployeeAlreadyAdded(employee.odooId)) {
+                return false;
+              }
+              if (roleFilter == null) {
+                return true;
+              }
+              final jobName = (employee.jobName ?? '').trim().toLowerCase();
+              return roleFilter.contains(jobName);
+            })
+            .toList(growable: false);
 
         return StatefulBuilder(
           builder: (context, setDialogState) {
             void applyFilter(String query) {
               final normalized = query.trim().toLowerCase();
               setDialogState(() {
-                filtered = _availableEmployees.where((employee) {
-                  if (_isEmployeeAlreadyAdded(employee.odooId)) {
-                    return false;
-                  }
-                  final jobName = (employee.jobName ?? '').trim().toLowerCase();
-                  if (roleFilter != null && !roleFilter.contains(jobName)) {
-                    return false;
-                  }
-                  if (normalized.isEmpty) {
-                    return true;
-                  }
-                  final haystack = '${employee.name} ${employee.jobName ?? ''}'.toLowerCase();
-                  return haystack.contains(normalized);
-                }).toList(growable: false);
+                filtered = _availableEmployees
+                    .where((employee) {
+                      if (_isEmployeeAlreadyAdded(employee.odooId)) {
+                        return false;
+                      }
+                      final jobName = (employee.jobName ?? '')
+                          .trim()
+                          .toLowerCase();
+                      if (roleFilter != null && !roleFilter.contains(jobName)) {
+                        return false;
+                      }
+                      if (normalized.isEmpty) {
+                        return true;
+                      }
+                      final haystack =
+                          '${employee.name} ${employee.jobName ?? ''}'
+                              .toLowerCase();
+                      return haystack.contains(normalized);
+                    })
+                    .toList(growable: false);
               });
             }
 
@@ -410,7 +479,9 @@ class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
             final keyboardOpen = mq.viewInsets.bottom > 0;
 
             return Dialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
               insetPadding: EdgeInsets.symmetric(
                 horizontal: 16,
                 vertical: keyboardOpen ? 8 : 24,
@@ -418,30 +489,66 @@ class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 520),
                 child: SingleChildScrollView(
-                  padding: EdgeInsets.only(bottom: mq.viewInsets.bottom.clamp(0.0, 32.0)),
+                  padding: EdgeInsets.only(
+                    bottom: mq.viewInsets.bottom.clamp(0.0, 32.0),
+                  ),
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+                    padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Text(
-                          roleLabel == null ? 'Ajouter un employe' : 'Ajouter un employe - $roleLabel',
-                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+                        Row(
+                          children: [
+                            Container(
+                              width: 38,
+                              height: 38,
+                              decoration: BoxDecoration(
+                                color: _accentOrange.withValues(alpha: 0.14),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(
+                                Icons.person_add_alt_1_outlined,
+                                size: 20,
+                                color: _accentOrange,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                roleLabel == null
+                                    ? 'Ajouter un employe'
+                                    : 'Ajouter un employe - $roleLabel',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 18,
+                                  color: _textDark,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 14),
                         TextField(
                           controller: controller,
                           onChanged: applyFilter,
                           decoration: InputDecoration(
-                            hintText: 'Rechercher',
-                            prefixIcon: const Icon(Icons.search),
+                            hintText: 'Rechercher un employe',
+                            hintStyle: const TextStyle(color: _muted),
+                            prefixIcon: const Icon(Icons.search, color: _muted),
                             isDense: true,
                             filled: true,
-                            fillColor: Colors.white,
+                            fillColor: _fieldBg,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(16),
                               borderSide: BorderSide.none,
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(
+                                color: _accentOrange,
+                                width: 1.6,
+                              ),
                             ),
                           ),
                         ),
@@ -449,25 +556,48 @@ class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
                         if (filtered.isEmpty)
                           const Padding(
                             padding: EdgeInsets.symmetric(vertical: 16),
-                            child: Center(child: Text('Aucun employe disponible.')),
+                            child: Center(
+                              child: Text(
+                                'Aucun employe disponible.',
+                                style: TextStyle(color: _muted),
+                              ),
+                            ),
                           )
                         else
                           SizedBox(
                             height: math.min(filtered.length * 72.0, 300.0),
                             child: ListView.separated(
                               itemCount: filtered.length,
-                              separatorBuilder: (context, index) => const SizedBox(height: 8),
+                              separatorBuilder: (context, index) =>
+                                  const SizedBox(height: 8),
                               itemBuilder: (context, index) {
                                 final employee = filtered[index];
                                 return Material(
-                                  color: const Color(0xFFF8FAFC),
+                                  color: _fieldBg,
                                   borderRadius: BorderRadius.circular(16),
                                   child: ListTile(
                                     dense: true,
-                                    title: Text(employee.name, style: const TextStyle(fontWeight: FontWeight.w700)),
-                                    subtitle: Text(employee.jobName ?? 'Fonction non renseignee'),
-                                    trailing: const Icon(Icons.add_circle_outline_rounded),
-                                    onTap: () => Navigator.pop(context, employee),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                    title: Text(
+                                      employee.name,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                        color: _textDark,
+                                      ),
+                                    ),
+                                    subtitle: Text(
+                                      employee.jobName ??
+                                          'Fonction non renseignee',
+                                      style: const TextStyle(color: _muted),
+                                    ),
+                                    trailing: const Icon(
+                                      Icons.add_circle_outline_rounded,
+                                      color: _accentOrange,
+                                    ),
+                                    onTap: () =>
+                                        Navigator.pop(context, employee),
                                   ),
                                 );
                               },
@@ -478,6 +608,9 @@ class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
                           alignment: Alignment.centerRight,
                           child: TextButton(
                             onPressed: () => Navigator.pop(context),
+                            style: TextButton.styleFrom(
+                              foregroundColor: _designNavy,
+                            ),
                             child: const Text('Fermer'),
                           ),
                         ),
@@ -521,27 +654,37 @@ class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+        _buildFieldLabel(label),
         const SizedBox(height: 8),
         InkWell(
-          onTap: () => _showTimeSpinner(context, controller, allowedTimes, afterChange),
+          onTap: () =>
+              _showTimeSpinner(context, controller, allowedTimes, afterChange),
           borderRadius: BorderRadius.circular(16),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFD7DFEA)),
+              border: Border.all(color: _border),
             ),
             child: Row(
               children: [
                 Expanded(
                   child: Text(
-                    controller.text.trim().isEmpty ? '--:--' : controller.text.trim(),
-                    style: const TextStyle(fontWeight: FontWeight.w700),
+                    controller.text.trim().isEmpty
+                        ? '--:--'
+                        : controller.text.trim(),
+                    style: const TextStyle(
+                      color: _textDark,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
-                const Icon(Icons.access_time_rounded, size: 18, color: Colors.grey),
+                const Icon(
+                  Icons.access_time_rounded,
+                  size: 18,
+                  color: _accentOrange,
+                ),
               ],
             ),
           ),
@@ -556,17 +699,19 @@ class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
       onChanged: (_) => _persistDraft(),
       minLines: 2,
       maxLines: 3,
+      style: const TextStyle(color: _textDark, fontWeight: FontWeight.w500),
       decoration: InputDecoration(
         hintText: 'Ajouter une observation si necessaire',
+        hintStyle: const TextStyle(color: _muted),
         filled: true,
-        fillColor: Colors.white,
+        fillColor: _fieldBg,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: Color(0xFF1E3A5F)),
+          borderSide: const BorderSide(color: _accentOrange, width: 1.6),
         ),
       ),
     );
@@ -579,11 +724,12 @@ class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: _border),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x12000000),
-            blurRadius: 18,
-            offset: Offset(0, 8),
+            color: Color(0x0F13233F),
+            blurRadius: 14,
+            offset: Offset(0, 6),
           ),
         ],
       ),
@@ -595,17 +741,44 @@ class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
             Row(
               children: [
                 Expanded(
-              child: Column(
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        log.employeNom.text.trim().isEmpty ? 'Employe sans nom' : log.employeNom.text.trim(),
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                        log.employeNom.text.trim().isEmpty
+                            ? 'Employe sans nom'
+                            : log.employeNom.text.trim(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: _textDark,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        log.fonction.text.trim().isEmpty ? 'Fonction non renseignee' : log.fonction.text.trim(),
-                        style: const TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w600),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.badge_outlined,
+                            size: 15,
+                            color: _accentOrange,
+                          ),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              log.fonction.text.trim().isEmpty
+                                  ? 'Fonction non renseignee'
+                                  : log.fonction.text.trim(),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: _muted,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -619,18 +792,27 @@ class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
                     });
                     _persistDraft();
                   },
-                  icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
+                  icon: const Icon(
+                    Icons.delete_outline_rounded,
+                    color: Colors.redAccent,
+                  ),
                   tooltip: 'Supprimer',
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5F9),
+                    color: _fieldBg,
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
                     '#${index + 1}',
-                    style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF475569)),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: _muted,
+                    ),
                   ),
                 ),
               ],
@@ -639,16 +821,26 @@ class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
+                    color: _fieldBg,
                     borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: _border),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Checkbox(
                         value: log.isAbsent,
+                        activeColor: _accentOrange,
+                        checkColor: _designNavy,
+                        side: const BorderSide(color: _border),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(6),
+                        ),
                         onChanged: (value) {
                           setState(() {
                             log.isAbsent = value ?? false;
@@ -656,11 +848,15 @@ class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
                           _persistDraft();
                         },
                       ),
-                      const SizedBox(width: 6),
+                      const SizedBox(width: 4),
                       const Text(
                         'Absent',
-                        style: TextStyle(fontWeight: FontWeight.w700),
+                        style: TextStyle(
+                          color: _textDark,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
+                      const SizedBox(width: 8),
                     ],
                   ),
                 ),
@@ -697,24 +893,39 @@ class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
               },
               borderRadius: BorderRadius.circular(14),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
+                  color: _fieldBg,
                   borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: _border),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.sticky_note_2_outlined, size: 18, color: Color(0xFF475569)),
+                    const Icon(
+                      Icons.sticky_note_2_outlined,
+                      size: 18,
+                      color: _accentOrange,
+                    ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        log.obs.text.trim().isEmpty ? 'Ajouter une observation' : 'Observation renseignee',
-                        style: const TextStyle(fontWeight: FontWeight.w700),
+                        log.obs.text.trim().isEmpty
+                            ? 'Ajouter une observation'
+                            : 'Observation renseignee',
+                        style: const TextStyle(
+                          color: _textDark,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                     Icon(
-                      log.showObservation ? Icons.expand_less_rounded : Icons.expand_more_rounded,
-                      color: const Color(0xFF475569),
+                      log.showObservation
+                          ? Icons.expand_less_rounded
+                          : Icons.expand_more_rounded,
+                      color: _muted,
                     ),
                   ],
                 ),
@@ -730,58 +941,138 @@ class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
     );
   }
 
+  Widget _buildRoleFilterButtons() {
+    final roles = _roleFilters.keys.toList(growable: false);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const spacing = 8.0;
+        final columns = constraints.maxWidth >= 560 ? roles.length : 2;
+        final itemWidth =
+            (constraints.maxWidth - spacing * (columns - 1)) / columns;
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children: roles
+              .map(
+                (roleLabel) => SizedBox(
+                  width: itemWidth,
+                  child: FilledButton(
+                    onPressed: () =>
+                        _openAddEmployeeDialog(roleLabel: roleLabel),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: _accentOrange,
+                      foregroundColor: _designNavy,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 10,
+                      ),
+                      minimumSize: const Size.fromHeight(54),
+                      textStyle: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: Text(
+                      roleLabel,
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+              )
+              .toList(growable: false),
+        );
+      },
+    );
+  }
+
   Widget _buildTopActions() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
+        gradient: const LinearGradient(
+          colors: [_designNavy, _designNavyLight],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x2213233F),
+            blurRadius: 22,
+            offset: Offset(0, 14),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Row(
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: const BoxDecoration(
+                  color: _accentOrange,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'SHIFT EN COURS',
+                style: TextStyle(
+                  color: _accentOrange,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.4,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
           const Text(
-            'Equipe du shift',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+            'Equipe / Personnel du shift',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 24,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.3,
+            ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           Text(
-            '${_staffLogs.length} employe(s) selectionne(s) pour cette feuille. Horaires par defaut: ${_projectStartHour()} - ${_projectEndHour()}',
-            style: const TextStyle(color: Color(0xFF64748B)),
-          ),
-          const SizedBox(height: 14),
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF8FAFC),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: const Color(0xFFD7DFEA)),
-            ),
-            child: Row(
-              children: _roleFilters.keys.map((roleLabel) {
-                return Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: FilledButton(
-                      onPressed: () => _openAddEmployeeDialog(roleLabel: roleLabel),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: const Color(0xFF1E3A5F),
-                        padding: const EdgeInsets.symmetric(vertical: 20),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-                      child: Text(
-                        roleLabel,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
-                      ),
-                    ),
-                  ),
-                );
-              }).toList(growable: false),
+            '${_staffLogs.length} employe(s) selectionne(s) pour cette feuille.',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.72),
+              fontWeight: FontWeight.w500,
             ),
           ),
+          const SizedBox(height: 4),
+          Text(
+            'Horaires par defaut : ${_projectStartHour()} - ${_projectEndHour()}',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.56),
+              fontSize: 12.5,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 18),
+          const Text(
+            'AJOUT RAPIDE PAR ROLE',
+            style: TextStyle(
+              color: _accentOrange,
+              fontSize: 11.5,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.2,
+            ),
+          ),
+          const SizedBox(height: 10),
+          _buildRoleFilterButtons(),
         ],
       ),
     );
@@ -789,16 +1080,26 @@ class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
 
   Widget _buildActionButtons() {
     return Padding(
-      padding: const EdgeInsets.only(top: 10, bottom: 30),
+      padding: const EdgeInsets.only(top: 14, bottom: 24),
       child: Row(
         children: [
           Expanded(
             child: OutlinedButton.icon(
               onPressed: () => Navigator.of(context).pop(),
-              icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 16),
+              icon: const Icon(Icons.arrow_back_rounded, size: 18),
               label: const Text('Precedent'),
               style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 23)
+                backgroundColor: Colors.white,
+                foregroundColor: _designNavy,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                textStyle: const TextStyle(
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w700,
+                ),
+                side: const BorderSide(color: _border),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
               ),
             ),
           ),
@@ -813,11 +1114,19 @@ class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
                   ),
                 );
               },
-              icon: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+              icon: const Icon(Icons.arrow_forward_rounded, size: 18),
               label: const Text('Suivant'),
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF1E3A5F),
-                padding: const EdgeInsets.symmetric(vertical: 23),
+                backgroundColor: _accentOrange,
+                foregroundColor: _designNavy,
+                padding: const EdgeInsets.symmetric(vertical: 18),
+                textStyle: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
               ),
             ),
           ),
@@ -831,16 +1140,95 @@ class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
     return Scaffold(
       backgroundColor: const Color(0xFFF4F7FB),
       appBar: AppBar(
-        title: const Text(
-          'Personnel',
-          style: TextStyle(fontWeight: FontWeight.w800),
-        ),
-        backgroundColor: const Color(0xFFF4F7FB),
+        backgroundColor: _softBg,
         elevation: 0,
-        centerTitle: true,
+        scrolledUnderElevation: 0,
+        centerTitle: false,
+        titleSpacing: 6,
+        leadingWidth: 68,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 12),
+          child: IconButton(
+            tooltip: 'Retour',
+            onPressed: () => Navigator.of(context).maybePop(),
+            style: IconButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: _designNavy,
+              side: const BorderSide(color: Color(0xFFE3E8F0)),
+            ),
+            icon: const Icon(Icons.arrow_back_rounded, size: 20),
+          ),
+        ),
+        title: Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE3E8F0)),
+              ),
+              child: Image.asset(
+                'assets/images/aurora_logo.png',
+                fit: BoxFit.contain,
+              ),
+            ),
+            const SizedBox(width: 10),
+            const Flexible(
+              child: Text(
+                'Personnel',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: _textDark,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: _accentOrange,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.groups_2_outlined,
+                      size: 14,
+                      color: _designNavy,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '${_staffLogs.length}',
+                      style: const TextStyle(
+                        color: _designNavy,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator(color: _accentOrange))
           : SafeArea(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
@@ -859,20 +1247,39 @@ class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(24),
+                              border: Border.all(color: _border),
                             ),
                             child: Column(
-                              children: const [
-                                Icon(Icons.groups_2_outlined, size: 42, color: Color(0xFF64748B)),
-                                SizedBox(height: 12),
-                                Text(
-                                  'Aucun employe selectionne',
-                                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                              children: [
+                                Container(
+                                  width: 64,
+                                  height: 64,
+                                  decoration: BoxDecoration(
+                                    color: _accentOrange.withValues(
+                                      alpha: 0.12,
+                                    ),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.groups_2_outlined,
+                                    size: 30,
+                                    color: _accentOrange,
+                                  ),
                                 ),
-                                SizedBox(height: 8),
-                                Text(
+                                const SizedBox(height: 16),
+                                const Text(
+                                  'Aucun employe selectionne',
+                                  style: TextStyle(
+                                    color: _textDark,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                const Text(
                                   'Ajoute seulement les personnes presentes sur cette feuille.',
                                   textAlign: TextAlign.center,
-                                  style: TextStyle(color: Color(0xFF64748B)),
+                                  style: TextStyle(color: _muted),
                                 ),
                               ],
                             ),
@@ -889,4 +1296,3 @@ class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
     );
   }
 }
-

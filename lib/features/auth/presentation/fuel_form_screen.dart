@@ -1,4 +1,4 @@
-﻿import 'dart:math' as math;
+import 'dart:math' as math;
 
 import 'package:aurora_drilling_report/data/local/db/app_database.dart';
 import 'package:aurora_drilling_report/shared/providers/app_providers.dart';
@@ -31,8 +31,10 @@ class _FuelLogDraft {
   }
 
   _FuelLogDraft.fromReportDraft(ReportFuelLogDraft draft)
-      : equipmentOdooId = draft.equipmentOdooId,
-        showRavitaillement = draft.hDebutRavi.trim().isNotEmpty || draft.hFinRavi.trim().isNotEmpty {
+    : equipmentOdooId = draft.equipmentOdooId,
+      showRavitaillement =
+          draft.hDebutRavi.trim().isNotEmpty ||
+          draft.hFinRavi.trim().isNotEmpty {
     equipementId.text = draft.equipement;
     qtyFuel.text = draft.qtyFuel;
     hDebut.text = draft.hDebut;
@@ -85,6 +87,27 @@ class DrillingFuelForm extends ConsumerStatefulWidget {
 }
 
 class _DrillingFuelFormState extends ConsumerState<DrillingFuelForm> {
+  static const Color _accentOrange = Color(0xFFF18E28);
+  static const Color _designNavy = Color(0xFF13233F);
+  static const Color _designNavyLight = Color(0xFF1E3A5F);
+  static const Color _textDark = Color(0xFF18243E);
+  static const Color _muted = Color(0xFF69758C);
+  static const Color _border = Color(0xFFD7DFEA);
+  static const Color _softBg = Color(0xFFFDF8E1);
+  static const Color _fieldBg = Color(0xFFF3F6FB);
+
+  Widget _buildFieldLabel(String label) {
+    return Text(
+      label.toUpperCase(),
+      style: const TextStyle(
+        color: _muted,
+        fontSize: 11.5,
+        fontWeight: FontWeight.w800,
+        letterSpacing: 1.1,
+      ),
+    );
+  }
+
   final List<_FuelLogDraft> _items = [];
   List<Equipment> _availableEquipments = [];
   bool _loadingReferences = true;
@@ -122,11 +145,14 @@ class _DrillingFuelFormState extends ConsumerState<DrillingFuelForm> {
       final db = ref.read(appDatabaseProvider);
       final allEquipments = await db.getAllEquipments();
       final projectId = draft.projectOdooId;
-      final filtered = allEquipments.where((equipment) {
-        final equipmentProjectId = equipment.projectOdooId;
-        return equipmentProjectId == null || equipmentProjectId == projectId;
-      }).toList()
-        ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+      final filtered =
+          allEquipments.where((equipment) {
+            final equipmentProjectId = equipment.projectOdooId;
+            return equipmentProjectId == null ||
+                equipmentProjectId == projectId;
+          }).toList()..sort(
+            (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+          );
 
       if (!mounted) {
         return;
@@ -192,11 +218,15 @@ class _DrillingFuelFormState extends ConsumerState<DrillingFuelForm> {
   void _refreshDraftRowsFromReferences() {
     var changed = false;
     for (final item in _items) {
-      final match = _findEquipmentMatch(equipmentOdooId: item.equipmentOdooId, name: item.equipementId.text);
+      final match = _findEquipmentMatch(
+        equipmentOdooId: item.equipmentOdooId,
+        name: item.equipementId.text,
+      );
       if (match == null) {
         continue;
       }
-      if (item.equipmentOdooId != match.odooId || item.equipementId.text != match.name) {
+      if (item.equipmentOdooId != match.odooId ||
+          item.equipementId.text != match.name) {
         item.applyEquipment(match);
         changed = true;
       }
@@ -232,7 +262,9 @@ class _DrillingFuelFormState extends ConsumerState<DrillingFuelForm> {
     if (!mounted) {
       return;
     }
-    ref.read(reportDraftProvider.notifier).setFuelLogs(
+    ref
+        .read(reportDraftProvider.notifier)
+        .setFuelLogs(
           _items.map((item) => item.toReportDraft()).toList(growable: false),
         );
     Future.microtask(_autoSaveFuelLogs);
@@ -253,21 +285,22 @@ class _DrillingFuelFormState extends ConsumerState<DrillingFuelForm> {
     final uuid = const Uuid();
     final rows = _items
         .where((item) => item.equipmentOdooId != null)
-        .map((item) => <String, dynamic>{
-              'mobile_uuid': uuid.v4(),
-              'compresseur_odoo_id': item.equipmentOdooId,
-              'qyt_fuel': double.tryParse(item.qtyFuel.text.trim()) ?? 0.0,
-              'date_d_equi': _parseHour(item.hDebut.text.trim()),
-              'date_f_equi': _parseHour(item.hFin.text.trim()),
-              'date_d_ravi': _parseHour(item.hDebutRavi.text.trim()),
-              'date_f_ravi': _parseHour(item.hFinRavi.text.trim()),
-            })
+        .map(
+          (item) => <String, dynamic>{
+            'mobile_uuid': uuid.v4(),
+            'compresseur_odoo_id': item.equipmentOdooId,
+            'qyt_fuel': double.tryParse(item.qtyFuel.text.trim()) ?? 0.0,
+            'date_d_equi': _parseHour(item.hDebut.text.trim()),
+            'date_f_equi': _parseHour(item.hFin.text.trim()),
+            'date_d_ravi': _parseHour(item.hDebutRavi.text.trim()),
+            'date_f_ravi': _parseHour(item.hFinRavi.text.trim()),
+          },
+        )
         .toList(growable: false);
 
-    await ref.read(appDatabaseProvider).replaceFeuilleFuelsDraft(
-          feuilleLocalId: feuilleLocalId,
-          rows: rows,
-        );
+    await ref
+        .read(appDatabaseProvider)
+        .replaceFeuilleFuelsDraft(feuilleLocalId: feuilleLocalId, rows: rows);
   }
 
   bool _isEquipmentAlreadyAdded(int equipmentOdooId) {
@@ -336,7 +369,10 @@ class _DrillingFuelFormState extends ConsumerState<DrillingFuelForm> {
 
   String _projectEndHour() => _formatDecimalHour(_shiftEndValue() % 24.0);
 
-  List<String> _buildAllowedTimes({required double minValue, required double maxValue}) {
+  List<String> _buildAllowedTimes({
+    required double minValue,
+    required double maxValue,
+  }) {
     final minMinutes = (_normalizeForShift(minValue) * 60).round();
     final maxMinutes = (_normalizeForShift(maxValue) * 60).round();
     if (maxMinutes < minMinutes) {
@@ -362,18 +398,25 @@ class _DrillingFuelFormState extends ConsumerState<DrillingFuelForm> {
 
   List<String> _allowedStartTimesFor(_FuelLogDraft item) {
     final currentEnd = _parseHour(item.hFin.text);
-    final maxValue = currentEnd == null ? _shiftEndValue() : _normalizeForShift(currentEnd);
+    final maxValue = currentEnd == null
+        ? _shiftEndValue()
+        : _normalizeForShift(currentEnd);
     return _buildAllowedTimes(minValue: _shiftStartValue(), maxValue: maxValue);
   }
 
   List<String> _allowedEndTimesFor(_FuelLogDraft item) {
     final currentStart = _parseHour(item.hDebut.text);
-    final minValue = currentStart == null ? _shiftStartValue() : _normalizeForShift(currentStart);
+    final minValue = currentStart == null
+        ? _shiftStartValue()
+        : _normalizeForShift(currentStart);
     return _buildAllowedTimes(minValue: minValue, maxValue: _shiftEndValue());
   }
 
   List<String> _allowedFreeTimes() {
-    return [for (var minute = 0; minute < 24 * 60; minute += 5) _formatMinutes(minute)];
+    return [
+      for (var minute = 0; minute < 24 * 60; minute += 5)
+        _formatMinutes(minute),
+    ];
   }
 
   void _showTimeSpinner(
@@ -405,16 +448,17 @@ class _DrillingFuelFormState extends ConsumerState<DrillingFuelForm> {
           child: Column(
             children: [
               Container(
-                decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  border: const Border(bottom: BorderSide(color: Colors.black12)),
+                decoration: const BoxDecoration(
+                  color: _fieldBg,
+                  border: Border(bottom: BorderSide(color: _border)),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     TextButton(
                       onPressed: () => Navigator.pop(context),
-                      child: const Text('Annuler', style: TextStyle(color: Colors.red)),
+                      style: TextButton.styleFrom(foregroundColor: _muted),
+                      child: const Text('Annuler'),
                     ),
                     TextButton(
                       onPressed: () {
@@ -424,20 +468,37 @@ class _DrillingFuelFormState extends ConsumerState<DrillingFuelForm> {
                         _persistDraft();
                         Navigator.pop(context);
                       },
-                      child: const Text('OK', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
+                      style: TextButton.styleFrom(
+                        foregroundColor: _accentOrange,
+                        textStyle: const TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                      child: const Text('OK'),
                     ),
                   ],
                 ),
               ),
               Expanded(
                 child: CupertinoPicker(
-                  scrollController: FixedExtentScrollController(initialItem: selectedIndex),
+                  scrollController: FixedExtentScrollController(
+                    initialItem: selectedIndex,
+                  ),
                   itemExtent: 40,
                   onSelectedItemChanged: (value) {
                     selectedIndex = value;
                   },
                   children: allowedTimes
-                      .map((time) => Center(child: Text(time, style: const TextStyle(fontSize: 20))))
+                      .map(
+                        (time) => Center(
+                          child: Text(
+                            time,
+                            style: const TextStyle(
+                              color: _textDark,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      )
                       .toList(),
                 ),
               ),
@@ -462,16 +523,20 @@ class _DrillingFuelFormState extends ConsumerState<DrillingFuelForm> {
             void applyFilter(String query) {
               final normalized = query.trim().toLowerCase();
               setDialogState(() {
-                filtered = _availableEquipments.where((equipment) {
-                  if (_isEquipmentAlreadyAdded(equipment.odooId)) {
-                    return false;
-                  }
-                  if (normalized.isEmpty) {
-                    return true;
-                  }
-                  final haystack = '${equipment.name} ${equipment.categoryName ?? ''}'.toLowerCase();
-                  return haystack.contains(normalized);
-                }).toList(growable: false);
+                filtered = _availableEquipments
+                    .where((equipment) {
+                      if (_isEquipmentAlreadyAdded(equipment.odooId)) {
+                        return false;
+                      }
+                      if (normalized.isEmpty) {
+                        return true;
+                      }
+                      final haystack =
+                          '${equipment.name} ${equipment.categoryName ?? ''}'
+                              .toLowerCase();
+                      return haystack.contains(normalized);
+                    })
+                    .toList(growable: false);
               });
             }
 
@@ -483,7 +548,9 @@ class _DrillingFuelFormState extends ConsumerState<DrillingFuelForm> {
             final keyboardOpen = mq.viewInsets.bottom > 0;
 
             return Dialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+              ),
               insetPadding: EdgeInsets.symmetric(
                 horizontal: 16,
                 vertical: keyboardOpen ? 8 : 24,
@@ -491,30 +558,64 @@ class _DrillingFuelFormState extends ConsumerState<DrillingFuelForm> {
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 560),
                 child: SingleChildScrollView(
-                  padding: EdgeInsets.only(bottom: mq.viewInsets.bottom.clamp(0.0, 32.0)),
+                  padding: EdgeInsets.only(
+                    bottom: mq.viewInsets.bottom.clamp(0.0, 32.0),
+                  ),
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+                    padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const Text(
-                          'Ajouter un equipement',
-                          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+                        Row(
+                          children: [
+                            Container(
+                              width: 38,
+                              height: 38,
+                              decoration: BoxDecoration(
+                                color: _accentOrange.withValues(alpha: 0.14),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(
+                                Icons.add_box_outlined,
+                                size: 20,
+                                color: _accentOrange,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            const Expanded(
+                              child: Text(
+                                'Ajouter un equipement',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 18,
+                                  color: _textDark,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 14),
                         TextField(
                           controller: controller,
                           onChanged: applyFilter,
                           decoration: InputDecoration(
-                            hintText: 'Rechercher',
-                            prefixIcon: const Icon(Icons.search),
+                            hintText: 'Rechercher un equipement',
+                            hintStyle: const TextStyle(color: _muted),
+                            prefixIcon: const Icon(Icons.search, color: _muted),
                             isDense: true,
                             filled: true,
-                            fillColor: Colors.white,
+                            fillColor: _fieldBg,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(16),
                               borderSide: BorderSide.none,
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              borderSide: const BorderSide(
+                                color: _accentOrange,
+                                width: 1.6,
+                              ),
                             ),
                           ),
                         ),
@@ -522,25 +623,49 @@ class _DrillingFuelFormState extends ConsumerState<DrillingFuelForm> {
                         if (filtered.isEmpty)
                           const Padding(
                             padding: EdgeInsets.symmetric(vertical: 16),
-                            child: Center(child: Text('Aucun equipement disponible.')),
+                            child: Center(
+                              child: Text(
+                                'Aucun equipement disponible.',
+                                style: TextStyle(color: _muted),
+                              ),
+                            ),
                           )
                         else
                           SizedBox(
                             height: math.min(filtered.length * 72.0, 300.0),
                             child: ListView.separated(
                               itemCount: filtered.length,
-                              separatorBuilder: (context, index) => const SizedBox(height: 8),
+                              separatorBuilder: (context, index) =>
+                                  const SizedBox(height: 8),
                               itemBuilder: (context, index) {
                                 final equipment = filtered[index];
                                 return Material(
-                                  color: const Color(0xFFF8FAFC),
+                                  color: _fieldBg,
                                   borderRadius: BorderRadius.circular(16),
                                   child: ListTile(
                                     dense: true,
-                                    title: Text(equipment.name, style: const TextStyle(fontWeight: FontWeight.w800)),
-                                    subtitle: Text(equipment.categoryName?.isNotEmpty == true ? equipment.categoryName! : '--'),
-                                    trailing: const Icon(Icons.add_circle_outline_rounded),
-                                    onTap: () => Navigator.pop(context, equipment),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                    title: Text(
+                                      equipment.name,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                        color: _textDark,
+                                      ),
+                                    ),
+                                    subtitle: Text(
+                                      equipment.categoryName?.isNotEmpty == true
+                                          ? equipment.categoryName!
+                                          : '--',
+                                      style: const TextStyle(color: _muted),
+                                    ),
+                                    trailing: const Icon(
+                                      Icons.add_circle_outline_rounded,
+                                      color: _accentOrange,
+                                    ),
+                                    onTap: () =>
+                                        Navigator.pop(context, equipment),
                                   ),
                                 );
                               },
@@ -551,6 +676,9 @@ class _DrillingFuelFormState extends ConsumerState<DrillingFuelForm> {
                           alignment: Alignment.centerRight,
                           child: TextButton(
                             onPressed: () => Navigator.pop(context),
+                            style: TextButton.styleFrom(
+                              foregroundColor: _designNavy,
+                            ),
                             child: const Text('Fermer'),
                           ),
                         ),
@@ -613,24 +741,31 @@ class _DrillingFuelFormState extends ConsumerState<DrillingFuelForm> {
   Widget _buildQuantityPresetButtons(_FuelLogDraft item) {
     const values = [5, 10, 100, 1000];
     return Row(
-      children: values.map((value) {
-        return Expanded(
-          child: Padding(
-            padding: EdgeInsets.only(right: value == values.last ? 0 : 8),
-            child: OutlinedButton(
-              onPressed: () => _addQuantityValue(item.qtyFuel, value),
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                side: const BorderSide(color: Color(0xFFCBD5E1)),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                foregroundColor: const Color(0xFF1E3A5F),
-                textStyle: const TextStyle(fontWeight: FontWeight.w800),
+      children: values
+          .map((value) {
+            return Expanded(
+              child: Padding(
+                padding: EdgeInsets.only(right: value == values.last ? 0 : 8),
+                child: OutlinedButton(
+                  onPressed: () => _addQuantityValue(item.qtyFuel, value),
+                  style: OutlinedButton.styleFrom(
+                    backgroundColor: _accentOrange.withValues(alpha: 0.12),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    side: BorderSide(
+                      color: _accentOrange.withValues(alpha: 0.4),
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    foregroundColor: _designNavy,
+                    textStyle: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  child: Text('$value'),
+                ),
               ),
-              child: Text('$value'),
-            ),
-          ),
-        );
-      }).toList(growable: false),
+            );
+          })
+          .toList(growable: false),
     );
   }
 
@@ -638,13 +773,19 @@ class _DrillingFuelFormState extends ConsumerState<DrillingFuelForm> {
     if (_loadingReferences) {
       return const Padding(
         padding: EdgeInsets.only(bottom: 16),
-        child: LinearProgressIndicator(),
+        child: LinearProgressIndicator(
+          color: _accentOrange,
+          backgroundColor: Color(0xFFF0E4BC),
+        ),
       );
     }
     if (_referenceError != null) {
       return Padding(
         padding: const EdgeInsets.only(bottom: 16),
-        child: Text(_referenceError!, style: const TextStyle(color: Colors.red)),
+        child: Text(
+          _referenceError!,
+          style: const TextStyle(color: Colors.red),
+        ),
       );
     }
     if (_availableEquipments.isEmpty) {
@@ -665,14 +806,18 @@ class _DrillingFuelFormState extends ConsumerState<DrillingFuelForm> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFD7DFEA)),
+        border: Border.all(color: _border),
       ),
       child: Row(
         children: [
           IconButton(
             visualDensity: VisualDensity.compact,
             onPressed: () => _updateQuantity(item.qtyFuel, -1),
-            icon: const Icon(Icons.remove_circle_outline_rounded, color: Colors.redAccent),
+            icon: const Icon(
+              Icons.remove_circle_outline_rounded,
+              color: _accentOrange,
+            ),
+            tooltip: 'Diminuer',
           ),
           Expanded(
             child: TextField(
@@ -681,14 +826,25 @@ class _DrillingFuelFormState extends ConsumerState<DrillingFuelForm> {
               keyboardType: TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               onChanged: (_) => _persistDraft(),
-              decoration: const InputDecoration(border: InputBorder.none, isDense: true),
-              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+              decoration: const InputDecoration(
+                border: InputBorder.none,
+                isDense: true,
+              ),
+              style: const TextStyle(
+                color: _textDark,
+                fontWeight: FontWeight.w800,
+                fontSize: 18,
+              ),
             ),
           ),
           IconButton(
             visualDensity: VisualDensity.compact,
             onPressed: () => _updateQuantity(item.qtyFuel, 1),
-            icon: const Icon(Icons.add_circle_outline_rounded, color: Colors.green),
+            icon: const Icon(
+              Icons.add_circle_outline_rounded,
+              color: _accentOrange,
+            ),
+            tooltip: 'Augmenter',
           ),
         ],
       ),
@@ -703,7 +859,7 @@ class _DrillingFuelFormState extends ConsumerState<DrillingFuelForm> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+        _buildFieldLabel(label),
         const SizedBox(height: 8),
         InkWell(
           onTap: () => _showTimeSpinner(context, controller, allowedTimes),
@@ -713,17 +869,26 @@ class _DrillingFuelFormState extends ConsumerState<DrillingFuelForm> {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFD7DFEA)),
+              border: Border.all(color: _border),
             ),
             child: Row(
               children: [
                 Expanded(
                   child: Text(
-                    controller.text.trim().isEmpty ? '--:--' : controller.text.trim(),
-                    style: const TextStyle(fontWeight: FontWeight.w700),
+                    controller.text.trim().isEmpty
+                        ? '--:--'
+                        : controller.text.trim(),
+                    style: const TextStyle(
+                      color: _textDark,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
-                const Icon(Icons.access_time_rounded, size: 18, color: Colors.grey),
+                const Icon(
+                  Icons.access_time_rounded,
+                  size: 18,
+                  color: _accentOrange,
+                ),
               ],
             ),
           ),
@@ -739,11 +904,12 @@ class _DrillingFuelFormState extends ConsumerState<DrillingFuelForm> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: _border),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x12000000),
-            blurRadius: 18,
-            offset: Offset(0, 8),
+            color: Color(0x0F13233F),
+            blurRadius: 14,
+            offset: Offset(0, 6),
           ),
         ],
       ),
@@ -759,40 +925,67 @@ class _DrillingFuelFormState extends ConsumerState<DrillingFuelForm> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        item.equipementId.text.trim().isEmpty ? 'Equipement non renseigne' : item.equipementId.text.trim(),
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                        item.equipementId.text.trim().isEmpty
+                            ? 'Equipement non renseigne'
+                            : item.equipementId.text.trim(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: _textDark,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Qty Fuel: ${item.qtyFuel.text.trim().isEmpty ? '0' : item.qtyFuel.text.trim()}',
-                        style: const TextStyle(color: Color(0xFF64748B), fontWeight: FontWeight.w600),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.local_gas_station_outlined,
+                            size: 15,
+                            color: _accentOrange,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            '${item.qtyFuel.text.trim().isEmpty ? '0' : item.qtyFuel.text.trim()} L',
+                            style: const TextStyle(
+                              color: _muted,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ),
                 IconButton(
                   onPressed: () => _removeItem(index),
-                  icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
+                  icon: const Icon(
+                    Icons.delete_outline_rounded,
+                    color: Colors.redAccent,
+                  ),
                   tooltip: 'Supprimer',
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5F9),
+                    color: _fieldBg,
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
                     '#${index + 1}',
-                    style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF475569)),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: _muted,
+                    ),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 16),
-            const Text(
-              'Qty Fuel',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-            ),
+            _buildFieldLabel('Qty Fuel'),
             const SizedBox(height: 8),
             _buildQuantityPresetButtons(item),
             const SizedBox(height: 8),
@@ -826,26 +1019,40 @@ class _DrillingFuelFormState extends ConsumerState<DrillingFuelForm> {
               },
               borderRadius: BorderRadius.circular(14),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
+                  color: _fieldBg,
                   borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: _border),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.local_shipping_outlined, size: 18, color: Color(0xFF475569)),
+                    const Icon(
+                      Icons.local_shipping_outlined,
+                      size: 18,
+                      color: _accentOrange,
+                    ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        (item.hDebutRavi.text.trim().isEmpty && item.hFinRavi.text.trim().isEmpty)
+                        (item.hDebutRavi.text.trim().isEmpty &&
+                                item.hFinRavi.text.trim().isEmpty)
                             ? 'Ajouter les heures de ravitaillement'
                             : 'Ravitaillement renseigne',
-                        style: const TextStyle(fontWeight: FontWeight.w700),
+                        style: const TextStyle(
+                          color: _textDark,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                     Icon(
-                      item.showRavitaillement ? Icons.expand_less_rounded : Icons.expand_more_rounded,
-                      color: const Color(0xFF475569),
+                      item.showRavitaillement
+                          ? Icons.expand_less_rounded
+                          : Icons.expand_more_rounded,
+                      color: _muted,
                     ),
                   ],
                 ),
@@ -881,33 +1088,88 @@ class _DrillingFuelFormState extends ConsumerState<DrillingFuelForm> {
 
   Widget _buildTopActions() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
+        gradient: const LinearGradient(
+          colors: [_designNavy, _designNavyLight],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x2213233F),
+            blurRadius: 22,
+            offset: Offset(0, 14),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Equipements / Fuel du shift',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+          Row(
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: const BoxDecoration(
+                  color: _accentOrange,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'SHIFT EN COURS',
+                style: TextStyle(
+                  color: _accentOrange,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.4,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 12),
+          const Text(
+            'Equipement / Fuel du shift',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 24,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.3,
+            ),
+          ),
+          const SizedBox(height: 8),
           Text(
             '${_items.length} equipement(s) selectionne(s) pour cette feuille.',
-            style: const TextStyle(color: Color(0xFF64748B)),
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.72),
+              fontWeight: FontWeight.w500,
+            ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 18),
           SizedBox(
             width: double.infinity,
             child: FilledButton.icon(
-              onPressed: _availableEquipments.isEmpty ? null : _openAddEquipmentDialog,
-              icon: const Icon(Icons.add_box_outlined),
+              onPressed: _availableEquipments.isEmpty
+                  ? null
+                  : _openAddEquipmentDialog,
+              icon: const Icon(Icons.add_box_outlined, size: 20),
               label: const Text('Ajouter un equipement'),
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF1E3A5F),
-                padding: const EdgeInsets.symmetric(vertical: 23),
+                backgroundColor: _accentOrange,
+                foregroundColor: _designNavy,
+                disabledBackgroundColor: Colors.white.withValues(alpha: 0.18),
+                disabledForegroundColor: Colors.white.withValues(alpha: 0.6),
+                padding: const EdgeInsets.symmetric(vertical: 18),
+                textStyle: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
               ),
             ),
           ),
@@ -918,16 +1180,26 @@ class _DrillingFuelFormState extends ConsumerState<DrillingFuelForm> {
 
   Widget _buildActionButtons() {
     return Padding(
-      padding: const EdgeInsets.only(top: 10, bottom: 30),
+      padding: const EdgeInsets.only(top: 14, bottom: 24),
       child: Row(
         children: [
           Expanded(
             child: OutlinedButton.icon(
               onPressed: () => Navigator.of(context).pop(),
-              icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 16),
+              icon: const Icon(Icons.arrow_back_rounded, size: 18),
               label: const Text('Precedent'),
               style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 23)
+                backgroundColor: Colors.white,
+                foregroundColor: _designNavy,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                textStyle: const TextStyle(
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w700,
+                ),
+                side: const BorderSide(color: _border),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
               ),
             ),
           ),
@@ -936,17 +1208,23 @@ class _DrillingFuelFormState extends ConsumerState<DrillingFuelForm> {
             child: FilledButton.icon(
               onPressed: () {
                 _persistDraft();
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => const RecapScreen(),
-                  ),
-                );
+                Navigator.of(
+                  context,
+                ).push(MaterialPageRoute(builder: (_) => const RecapScreen()));
               },
-              icon: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+              icon: const Icon(Icons.arrow_forward_rounded, size: 18),
               label: const Text('Suivant'),
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF1E3A5F),
-                padding: const EdgeInsets.symmetric(vertical: 23),
+                backgroundColor: _accentOrange,
+                foregroundColor: _designNavy,
+                padding: const EdgeInsets.symmetric(vertical: 18),
+                textStyle: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
               ),
             ),
           ),
@@ -960,13 +1238,92 @@ class _DrillingFuelFormState extends ConsumerState<DrillingFuelForm> {
     return Scaffold(
       backgroundColor: const Color(0xFFF4F7FB),
       appBar: AppBar(
-        title: const Text(
-          'Equipement auxiliaire / Fuel',
-          style: TextStyle(fontWeight: FontWeight.w800),
-        ),
-        backgroundColor: const Color(0xFFF4F7FB),
+        backgroundColor: _softBg,
         elevation: 0,
-        centerTitle: true,
+        scrolledUnderElevation: 0,
+        centerTitle: false,
+        titleSpacing: 6,
+        leadingWidth: 68,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 12),
+          child: IconButton(
+            tooltip: 'Retour',
+            onPressed: () => Navigator.of(context).maybePop(),
+            style: IconButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: _designNavy,
+              side: const BorderSide(color: Color(0xFFE3E8F0)),
+            ),
+            icon: const Icon(Icons.arrow_back_rounded, size: 20),
+          ),
+        ),
+        title: Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE3E8F0)),
+              ),
+              child: Image.asset(
+                'assets/images/aurora_logo.png',
+                fit: BoxFit.contain,
+              ),
+            ),
+            const SizedBox(width: 10),
+            const Flexible(
+              child: Text(
+                'Equipement',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: _textDark,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: _accentOrange,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.local_gas_station_outlined,
+                      size: 14,
+                      color: _designNavy,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '${_items.length}',
+                      style: const TextStyle(
+                        color: _designNavy,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -987,20 +1344,37 @@ class _DrillingFuelFormState extends ConsumerState<DrillingFuelForm> {
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: _border),
                       ),
                       child: Column(
-                        children: const [
-                          Icon(Icons.local_gas_station_outlined, size: 42, color: Color(0xFF64748B)),
-                          SizedBox(height: 12),
-                          Text(
-                            'Aucun equipement selectionne',
-                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                        children: [
+                          Container(
+                            width: 64,
+                            height: 64,
+                            decoration: BoxDecoration(
+                              color: _accentOrange.withValues(alpha: 0.12),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.local_gas_station_outlined,
+                              size: 30,
+                              color: _accentOrange,
+                            ),
                           ),
-                          SizedBox(height: 8),
-                          Text(
+                          const SizedBox(height: 16),
+                          const Text(
+                            'Aucun equipement selectionne',
+                            style: TextStyle(
+                              color: _textDark,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
                             'Ajoute les equipements utilises sur cette feuille.',
                             textAlign: TextAlign.center,
-                            style: TextStyle(color: Color(0xFF64748B)),
+                            style: TextStyle(color: _muted),
                           ),
                         ],
                       ),
@@ -1017,6 +1391,3 @@ class _DrillingFuelFormState extends ConsumerState<DrillingFuelForm> {
     );
   }
 }
-
-
-
