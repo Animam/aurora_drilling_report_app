@@ -37,6 +37,8 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
   final TextEditingController _fuelMeterController = TextEditingController();
   final TextEditingController _hourMeterController = TextEditingController();
 
+  bool _hourMeterEnabled = false;
+
   List<Project> _projects = [];
   List<Equipment> _foreuses = [];
   List<Location> _locations = [];
@@ -55,6 +57,7 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
         draft.dateText ?? DateFormat('dd/MM/yyyy').format(DateTime.now());
     _fuelMeterController.text = draft.fuelMeter;
     _hourMeterController.text = draft.hourMeter;
+    _hourMeterEnabled = _hourMeterController.text.trim().isNotEmpty || true;
     Future.microtask(_loadReferenceData);
   }
 
@@ -287,6 +290,13 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
       return;
     }
 
+    if (_hourMeterEnabled && _hourMeterController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Le compteur horaire est obligatoire.')),
+      );
+      return;
+    }
+
     final project = _resolveProjectForSelection();
     if (project == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -303,7 +313,9 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
     draftNotifier.setLocationOdooId(_selectedLocationOdooId);
     draftNotifier.setDateText(_dateController.text.trim());
     draftNotifier.setFuelMeter(_fuelMeterController.text.trim());
-    draftNotifier.setHourMeter(_hourMeterController.text.trim());
+    draftNotifier.setHourMeter(
+      _hourMeterEnabled ? _hourMeterController.text.trim() : '',
+    );
     draftNotifier.setProjectData(
       projectOdooId: project.odooId,
       projectDateDJ: project.dateDJ,
@@ -320,9 +332,11 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
       dateForage: _dateController.text.trim(),
       foreuseOdooId: _selectedForeuseOdooId,
       locationOdooId: _selectedLocationOdooId,
-      hourMeter: double.tryParse(
-        _hourMeterController.text.trim().replaceAll(',', '.'),
-      ),
+      hourMeter: _hourMeterEnabled
+          ? double.tryParse(
+              _hourMeterController.text.trim().replaceAll(',', '.'),
+            )
+          : null,
       fuelMeter: _fuelMeterController.text.trim().isEmpty
           ? null
           : _fuelMeterController.text.trim(),
@@ -1043,7 +1057,7 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
             number: '5',
             title: 'Compteurs',
             subtitle: meterEnabled
-                ? 'Relevés machine du shift, facultatifs.'
+                ? 'Relevés machine du shift.'
                 : 'Complétez la date pour activer les compteurs.',
             locked: !meterEnabled,
             child: Opacity(
@@ -1051,14 +1065,53 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildFieldLabel('Hour meter / Compteur horaire'),
+                  Row(
+                    children: [
+                      _buildFieldLabel('Hour meter / Compteur horaire'),
+                      const Spacer(),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text(
+                            'Avec compteur',
+                            style: TextStyle(
+                              color: _muted,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          Switch.adaptive(
+                            value: _hourMeterEnabled,
+                            activeColor: _orange,
+                            onChanged: meterEnabled
+                                ? (value) {
+                                    setState(() {
+                                      _hourMeterEnabled = value;
+                                      if (!value) {
+                                        _hourMeterController.clear();
+                                      }
+                                    });
+                                    ref
+                                        .read(reportDraftProvider.notifier)
+                                        .setHourMeter(
+                                          value
+                                              ? _hourMeterController.text.trim()
+                                              : '',
+                                        );
+                                  }
+                                : null,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                   _buildOptionalTextField(
                     controller: _hourMeterController,
                     hint: meterEnabled
-                        ? 'Optionnel'
+                        ? (_hourMeterEnabled ? 'Obligatoire' : 'Non requis')
                         : 'Complétez d\'abord la date',
                     icon: Icons.timer_outlined,
-                    enabled: meterEnabled,
+                    enabled: meterEnabled && _hourMeterEnabled,
                     onChanged: (value) {
                       ref
                           .read(reportDraftProvider.notifier)

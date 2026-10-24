@@ -34,6 +34,7 @@ class _FeuilleListScreenState extends ConsumerState<FeuilleListScreen> {
   List<Feuille> _items = [];
   Map<int, String> _equipmentNames = {};
   Map<int, String> _locationNames = {};
+  Map<int, double> _meterTotals = {};
   int? _openingFeuilleLocalId;
 
   Future<void> _load() async {
@@ -42,6 +43,20 @@ class _FeuilleListScreenState extends ConsumerState<FeuilleListScreen> {
     // final projects = await db.getAllProjects();
     final equipments = await db.getAllEquipments();
     final locations = await db.getAllLocations();
+    final meterTotals = <int, double>{};
+
+    for (final feuille in data) {
+      final lignes = await db.getLignesByFeuille(feuille.localId);
+      var total = 0.0;
+      for (final ligne in lignes) {
+        if (ligne.totalDim != null) {
+          total += ligne.totalDim!;
+        } else if (ligne.fromDim != null && ligne.toDim != null) {
+          total += (ligne.toDim! - ligne.fromDim!).abs();
+        }
+      }
+      meterTotals[feuille.localId] = total;
+    }
 
     if (!mounted) {
       return;
@@ -52,6 +67,7 @@ class _FeuilleListScreenState extends ConsumerState<FeuilleListScreen> {
       // _projectNames = {for (final item in projects) item.odooId: item.name};
       _equipmentNames = {for (final item in equipments) item.odooId: item.name};
       _locationNames = {for (final item in locations) item.odooId: item.name};
+      _meterTotals = meterTotals;
     });
   }
 
@@ -185,6 +201,9 @@ class _FeuilleListScreenState extends ConsumerState<FeuilleListScreen> {
         : '--';
     final isOpening = _openingFeuilleLocalId == item.localId;
     final isDraft = item.syncStatus == 'draft';
+    final totalMeters = _meterTotals[item.localId] ?? 0.0;
+    final totalText =
+        'Total : ${totalMeters == totalMeters.roundToDouble() ? totalMeters.toInt().toString() : totalMeters.toString()} m';
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
@@ -347,6 +366,11 @@ class _FeuilleListScreenState extends ConsumerState<FeuilleListScreen> {
                     _buildInfoChip(
                       Icons.calendar_today_outlined,
                       _formatDate(item.dateForage),
+                      isDraft: isDraft,
+                    ),
+                    _buildInfoChip(
+                      Icons.straighten_outlined,
+                      totalText.replaceAll('Total : ', '').trim(),
                       isDraft: isDraft,
                     ),
                   ],
