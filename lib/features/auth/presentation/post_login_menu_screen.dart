@@ -18,12 +18,14 @@ class PostLoginMenuScreen extends ConsumerStatefulWidget {
   final bool initialMessageIsError;
 
   @override
-  ConsumerState<PostLoginMenuScreen> createState() => _PostLoginMenuScreenState();
+  ConsumerState<PostLoginMenuScreen> createState() =>
+      _PostLoginMenuScreenState();
 }
 
 class _PostLoginMenuScreenState extends ConsumerState<PostLoginMenuScreen> {
   bool _initialMessageShown = false;
   String? _employeeName;
+  String? _employeeJob;
   String? _companyName;
   int? _pendingCount;
 
@@ -43,12 +45,35 @@ class _PostLoginMenuScreenState extends ConsumerState<PostLoginMenuScreen> {
       pendingCount = null;
     }
 
+    String? employeeJob;
+    final employeeId = (scope?['employee_id'] as num?)?.toInt();
+    if (employeeId != null) {
+      try {
+        final employees = await ref.read(appDatabaseProvider).getAllEmployees();
+        for (final employee in employees) {
+          if (employee.odooId == employeeId) {
+            employeeJob = employee.jobName;
+            break;
+          }
+        }
+      } catch (_) {
+        employeeJob = null;
+      }
+    }
+    employeeJob ??=
+        (scope?['employee_job_name'] ??
+                scope?['job_name'] ??
+                scope?['employee_function'] ??
+                scope?['fonction'])
+            ?.toString();
+
     if (!mounted) return;
     setState(() {
       if (scope != null) {
         _employeeName = scope['employee_name']?.toString();
         _companyName = scope['company_name']?.toString();
       }
+      _employeeJob = employeeJob;
       _pendingCount = pendingCount;
     });
   }
@@ -63,12 +88,62 @@ class _PostLoginMenuScreenState extends ConsumerState<PostLoginMenuScreen> {
     return name == null || name.isEmpty ? '' : name;
   }
 
+  String get _jobLabel {
+    final job = _employeeJob?.trim();
+    return job == null || job.isEmpty ? '' : job;
+  }
+
+  Widget _buildJobBadge({required bool compact}) {
+    if (_jobLabel.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 9 : 11,
+        vertical: compact ? 4 : 6,
+      ),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF18E28).withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: const Color(0xFFF18E28).withValues(alpha: 0.5),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.work_outline_rounded,
+            size: 13,
+            color: Color(0xFFF18E28),
+          ),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              _jobLabel.toUpperCase(),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: const Color(0xFFF18E28),
+                fontSize: compact ? 10 : 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.8,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showUserInfo(BuildContext context) {
     showDialog<void>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           title: const Row(
             children: [
               CircleAvatar(
@@ -76,10 +151,7 @@ class _PostLoginMenuScreenState extends ConsumerState<PostLoginMenuScreen> {
                 child: Icon(Icons.person_rounded, color: Colors.white),
               ),
               SizedBox(width: 12),
-              Text(
-                'Profil',
-                style: TextStyle(fontWeight: FontWeight.w800),
-              ),
+              Text('Profil', style: TextStyle(fontWeight: FontWeight.w800)),
             ],
           ),
           content: Column(
@@ -87,19 +159,53 @@ class _PostLoginMenuScreenState extends ConsumerState<PostLoginMenuScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                _employeeName?.isNotEmpty == true ? _employeeName! : 'Utilisateur',
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                _employeeName?.isNotEmpty == true
+                    ? _employeeName!
+                    : 'Utilisateur',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               if (_companyName?.isNotEmpty == true) ...[
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    const Icon(Icons.business_rounded, size: 16, color: Color(0xFF69758C)),
+                    const Icon(
+                      Icons.business_rounded,
+                      size: 16,
+                      color: Color(0xFF69758C),
+                    ),
                     const SizedBox(width: 6),
                     Flexible(
                       child: Text(
                         _companyName!,
-                        style: const TextStyle(color: Color(0xFF69758C), fontWeight: FontWeight.w500),
+                        style: const TextStyle(
+                          color: Color(0xFF69758C),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+              if (_jobLabel.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.work_outline_rounded,
+                      size: 16,
+                      color: Color(0xFFF18E28),
+                    ),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        _jobLabel,
+                        style: const TextStyle(
+                          color: Color(0xFFF18E28),
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                   ],
@@ -120,15 +226,15 @@ class _PostLoginMenuScreenState extends ConsumerState<PostLoginMenuScreen> {
 
   void _openCreateSheet(BuildContext context, WidgetRef ref) {
     ref.read(reportDraftProvider.notifier).reset();
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const RegistrationScreen()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const RegistrationScreen()));
   }
 
   void _openPendingSheets(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const FeuilleListScreen()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const FeuilleListScreen()));
   }
 
   Future<void> _confirmLogout(BuildContext context, WidgetRef ref) async {
@@ -136,14 +242,14 @@ class _PostLoginMenuScreenState extends ConsumerState<PostLoginMenuScreen> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           title: const Text(
             'Deconnexion',
             style: TextStyle(fontWeight: FontWeight.w800),
           ),
-          content: const Text(
-            'Voulez-vous vraiment vous deconnecter ?',
-          ),
+          content: const Text('Voulez-vous vraiment vous deconnecter ?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -472,6 +578,10 @@ class _PostLoginMenuScreenState extends ConsumerState<PostLoginMenuScreen> {
                         ],
                       ),
                     ],
+                    if (_jobLabel.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      _buildJobBadge(compact: false),
+                    ],
                     const SizedBox(height: 24),
                     Container(
                       width: 52,
@@ -587,6 +697,10 @@ class _PostLoginMenuScreenState extends ConsumerState<PostLoginMenuScreen> {
                         ],
                       ),
                     ],
+                    if (_jobLabel.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      _buildJobBadge(compact: true),
+                    ],
                   ],
                 ),
               ),
@@ -638,8 +752,8 @@ class _PostLoginMenuScreenState extends ConsumerState<PostLoginMenuScreen> {
     final caption = count == null
         ? 'Etat indisponible'
         : count == 0
-            ? 'Tout est synchronise'
-            : 'a synchroniser';
+        ? 'Tout est synchronise'
+        : 'a synchroniser';
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -782,13 +896,14 @@ class _PostLoginMenuScreenState extends ConsumerState<PostLoginMenuScreen> {
           _ActionCard(
             icon: Icons.sync_problem_outlined,
             title: 'Voir les feuilles non synchronisees',
-            subtitle: 'Ouvrir la liste locale des feuilles en attente de synchronisation.',
+            subtitle:
+                'Ouvrir la liste locale des feuilles en attente de synchronisation.',
             accent: const Color(0xFF2457C5),
             badge: count == null || count == 0
                 ? null
                 : count == 1
-                    ? '1 feuille en attente'
-                    : '$count feuilles en attente',
+                ? '1 feuille en attente'
+                : '$count feuilles en attente',
             onTap: () => _openPendingSheets(context),
           ),
           const SizedBox(height: 22),
@@ -822,7 +937,6 @@ class _PostLoginMenuScreenState extends ConsumerState<PostLoginMenuScreen> {
               ],
             ),
           ),
-        
         ],
       ),
     );

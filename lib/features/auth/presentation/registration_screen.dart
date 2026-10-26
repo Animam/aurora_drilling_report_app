@@ -285,6 +285,7 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Renseignez Quart, Foreuse, Location et Date.'),
+          backgroundColor: Colors.red,
         ),
       );
       return;
@@ -292,8 +293,8 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
 
     if (_hourMeterEnabled && _hourMeterController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Le compteur horaire est obligatoire.')),
-      );
+        const SnackBar(content: Text('Le compteur horaire est obligatoire.'),backgroundColor: Colors.red),)
+      ;
       return;
     }
 

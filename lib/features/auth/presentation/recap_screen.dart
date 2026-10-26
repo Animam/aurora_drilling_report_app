@@ -18,6 +18,21 @@ import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+/// Vrai si la fonction de l'utilisateur autorise la synchronisation manuelle.
+/// Comparaison insensible a la casse : "directeur de site" et "admin rh" sont
+/// cherches comme sous-chaines (ex. "Directeur de Site - Abidjan", "ADMIN RH").
+bool syncAllowedForJob(String? job) {
+  final normalized = (job ?? '')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim()
+      .toLowerCase();
+  if (normalized.isEmpty) {
+    return false;
+  }
+  return normalized.contains('directeur de site') ||
+      normalized.contains('admin rh');
+}
+
 class RecapScreen extends ConsumerStatefulWidget {
   const RecapScreen({
     super.key,
@@ -49,6 +64,7 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
   bool _loading = true;
   bool _saving = false;
   bool _syncing = false;
+  bool _syncAllowedByRole = false;
   int? _currentFeuilleLocalId;
   String? _existingMobileUuid;
   int? _existingOdooId;
@@ -106,7 +122,43 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
     _hourMeterController.text = draft.hourMeter;
     _fuelMeterController.text = draft.fuelMeter;
 
+    await _loadSyncRolePermission();
     await _loadReferences();
+  }
+
+  Future<void> _loadSyncRolePermission() async {
+    var allowed = false;
+    try {
+      final scope = await ref.read(mobileScopeCacheProvider).readScope();
+      final employeeId = (scope?['employee_id'] as num?)?.toInt();
+      String? job;
+      if (employeeId != null) {
+        final employees = await ref.read(appDatabaseProvider).getAllEmployees();
+        for (final employee in employees) {
+          if (employee.odooId == employeeId) {
+            job = employee.jobName;
+            break;
+          }
+        }
+      }
+      job ??=
+          (scope?['employee_job_name'] ??
+                  scope?['job_name'] ??
+                  scope?['employee_function'] ??
+                  scope?['fonction'])
+              ?.toString();
+      allowed = syncAllowedForJob(job);
+    } catch (_) {
+      allowed = false;
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _syncAllowedByRole = allowed;
+    });
   }
 
   Future<void> _loadReferences() async {
@@ -301,7 +353,9 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
 
   bool get _canSyncCurrentFeuille {
     final draft = ref.read(reportDraftProvider);
-    return widget.openedFromList && draft.currentSyncStatus == 'pending';
+    return _syncAllowedByRole &&
+        widget.openedFromList &&
+        draft.currentSyncStatus == 'pending';
   }
 
   T? _findByOdooId<T>(List<T> items, int? odooId, int Function(T item) getId) {
