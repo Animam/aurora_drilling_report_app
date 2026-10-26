@@ -107,6 +107,7 @@ class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
     'Foreur': {'foreur'},
     'Aide Foreur': {'aide-foreur', 'aide foreur'},
     'Aprenti aide foreur': {'apprenti aide foreur', 'apprenti aide-foreur'},
+    'Directeur': {'directeur de site'},
   };
 
   static const Set<String> _allowedJobs = {
@@ -116,6 +117,7 @@ class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
     'aide foreur',
     'apprenti aide foreur',
     'apprenti aide-foreur',
+    'directeur de site',
   };
 
   @override
@@ -946,7 +948,8 @@ class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
     return LayoutBuilder(
       builder: (context, constraints) {
         const spacing = 8.0;
-        final columns = constraints.maxWidth >= 560 ? roles.length : 2;
+        // 5 roles repartis sur 2 lignes : 3 en haut, 2 en bas.
+        const columns = 3;
         final itemWidth =
             (constraints.maxWidth - spacing * (columns - 1)) / columns;
         return Wrap(

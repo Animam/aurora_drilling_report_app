@@ -79,14 +79,47 @@ class DrillingConsumableForm extends ConsumerStatefulWidget {
       _DrillingConsumableFormState();
 }
 
+/// Libelles des statuts materiel. Les cles sont les codes stockes en base et
+/// envoyes a Odoo, les valeurs sont les textes affiches.
+const Map<String, String> materialStatusLabels = {
+  '': 'Aucun',
+  '1': 'Usee',
+  '2': 'En panne',
+  '3': 'Bon Etat',
+};
+
+/// Retourne le libelle affichable d'un statut materiel.
+/// Accepte les codes ('3') comme les anciens libelles deja enregistres
+/// ('Bon Etat', 'bon etat', 'usee'...). Retourne une chaine vide si le statut
+/// est vide et la valeur brute si elle est inconnue.
+String materialStatusLabel(String? rawValue) {
+  final raw = (rawValue ?? '').trim();
+  if (raw.isEmpty) {
+    return '';
+  }
+  final exact = materialStatusLabels[raw];
+  if (exact != null) {
+    return exact;
+  }
+  switch (raw.toLowerCase()) {
+    case 'usee':
+    case 'us?e':
+    case 'us\u00e9e':
+      return 'Usee';
+    case 'en panne':
+      return 'En panne';
+    case 'bon etat':
+    case 'bon ?tat':
+    case 'bon \u00e9tat':
+      return 'Bon Etat';
+    default:
+      return raw;
+  }
+}
+
 class _DrillingConsumableFormState
     extends ConsumerState<DrillingConsumableForm> {
-  static const Map<String, String> _statusOptions = {
-    '': 'Aucun',
-    '1': 'Usee',
-    '2': 'En panne',
-    '3': 'Bon Etat',
-  };
+  static const Map<String, String> _statusOptions = materialStatusLabels;
 
   static const Color _accentOrange = Color(0xFFF18E28);
   static const Color _designNavy = Color(0xFF13233F);

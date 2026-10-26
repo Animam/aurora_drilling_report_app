@@ -1757,7 +1757,12 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
                 'Observation',
                 row.observation.isEmpty ? '--' : row.observation,
               ),
-              _buildInfoRow('Status', row.status.isEmpty ? '--' : row.status),
+              _buildInfoRow(
+                'Status',
+                row.status.trim().isEmpty
+                    ? '--'
+                    : materialStatusLabel(row.status),
+              ),
             ],
           ),
         );
@@ -2516,11 +2521,10 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
                       final backButton = OutlinedButton.icon(
                         onPressed: () => Navigator.of(context).pop(),
                         icon: const Icon(Icons.arrow_back_rounded, size: 18),
-                        label: const Flexible(
-                          child: Text(
-                            'Precedent',
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                        label: const Text(
+                          'Precedent',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: _designNavy,
@@ -2549,11 +2553,10 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
                                 ),
                               )
                             : const Icon(Icons.sync_outlined),
-                        label: Flexible(
-                          child: Text(
-                            _syncing ? 'Synchronisation...' : 'Synchroniser',
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                        label: Text(
+                          _syncing ? 'Synchronisation...' : 'Synchroniser',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                         style: FilledButton.styleFrom(
                           backgroundColor: const Color(0xFF0F9D8A),
@@ -2588,15 +2591,14 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
                                 ),
                               )
                             : const Icon(Icons.save_outlined),
-                        label: Flexible(
-                          child: Text(
-                            _saving
-                                ? 'Enregistrement...'
-                                : widget.openedFromList
-                                ? 'Mettre a jour localement'
-                                : 'Enregistrer localement',
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                        label: Text(
+                          _saving
+                              ? 'Enregistrement...'
+                              : widget.openedFromList
+                              ? 'Mettre a jour localement'
+                              : 'Enregistrer localement',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                         style: FilledButton.styleFrom(
                           backgroundColor: _accentOrange,
