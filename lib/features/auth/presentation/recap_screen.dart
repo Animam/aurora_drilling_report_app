@@ -50,7 +50,6 @@ class RecapScreen extends ConsumerStatefulWidget {
 class _RecapScreenState extends ConsumerState<RecapScreen> {
   static const Color _accentOrange = Color(0xFFF18E28);
   static const Color _designNavy = Color(0xFF13233F);
-  static const Color _designNavyLight = Color(0xFF1E3A5F);
   static const Color _textDark = Color(0xFF18243E);
   static const Color _muted = Color(0xFF69758C);
   static const Color _border = Color(0xFFD7DFEA);
@@ -2295,12 +2294,9 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
                     margin: const EdgeInsets.only(bottom: 18),
                     padding: const EdgeInsets.all(22),
                     decoration: BoxDecoration(
+                      color: const Color(0xFFF1F3F5),
                       borderRadius: BorderRadius.circular(28),
-                      gradient: const LinearGradient(
-                        colors: [_designNavy, _designNavyLight],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
+                      border: Border.all(color: _border),
                       boxShadow: const [
                         BoxShadow(
                           color: Color(0x2213233F),
@@ -2326,7 +2322,7 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
                             const Text(
                               'RAPPORT DE FORAGE',
                               style: TextStyle(
-                                color: _accentOrange,
+                                color: _muted,
                                 fontSize: 11.5,
                                 fontWeight: FontWeight.w800,
                                 letterSpacing: 1.4,
@@ -2338,7 +2334,7 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
                         const Text(
                           'Résumé du rapport de forage',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: _designNavy,
                             fontSize: 24,
                             fontWeight: FontWeight.w900,
                             letterSpacing: -0.3,
@@ -2348,7 +2344,7 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
                         Text(
                           'Vérification complète avant enregistrement local',
                           style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.72),
+                            color: _muted,
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
                           ),
@@ -2665,9 +2661,9 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.1),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+        border: Border.all(color: _border),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -2677,7 +2673,7 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
           Text(
             text,
             style: const TextStyle(
-              color: Colors.white,
+              color: _textDark,
               fontWeight: FontWeight.w800,
             ),
           ),

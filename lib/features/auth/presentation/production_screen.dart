@@ -219,7 +219,6 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
 
   static const Color _accentOrange = Color(0xFFF18E28);
   static const Color _designNavy = Color(0xFF13233F);
-  static const Color _designNavyLight = Color(0xFF1E3A5F);
   static const Color _textDark = Color(0xFF18243E);
   static const Color _muted = Color(0xFF69758C);
   static const Color _border = Color(0xFFD7DFEA);
@@ -2145,18 +2144,9 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                                   const SizedBox(width: 12),
                                 if (showDistanceField)
                                   Expanded(
-                                    child: _buildTextField(
+                                    child: _buildDistanceField(
                                       controller: log.distance,
-                                      label: 'Distance',
-                                      keyboardType:
-                                          const TextInputType.numberWithOptions(
-                                            decimal: true,
-                                          ),
-                                      inputFormatters: [
-                                        FilteringTextInputFormatter.allow(
-                                          RegExp(r'[0-9.,]'),
-                                        ),
-                                      ],
+                                      compactWithUnit: isDelayDistanceCode,
                                       inlineLabel: true,
                                     ),
                                   ),
@@ -2482,18 +2472,9 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                                   const SizedBox(width: 12),
                                 if (showDistanceField)
                                   Expanded(
-                                    child: _buildTextField(
+                                    child: _buildDistanceField(
                                       controller: log.distance,
-                                      label: 'Distance',
-                                      keyboardType:
-                                          const TextInputType.numberWithOptions(
-                                            decimal: true,
-                                          ),
-                                      inputFormatters: [
-                                        FilteringTextInputFormatter.allow(
-                                          RegExp(r'[0-9.,]'),
-                                        ),
-                                      ],
+                                      compactWithUnit: isDelayDistanceCode,
                                     ),
                                   ),
                               ],
@@ -2863,6 +2844,39 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
     );
   }
 
+  Widget _buildDistanceField({
+    required TextEditingController controller,
+    required bool compactWithUnit,
+    bool inlineLabel = false,
+  }) {
+    final field = _buildTextField(
+      controller: controller,
+      label: 'Distance',
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
+      inlineLabel: inlineLabel,
+    );
+
+    if (!compactWithUnit) {
+      return field;
+    }
+
+    return Row(
+      children: [
+        SizedBox(width: 150, child: field),
+        const SizedBox(width: 10),
+        const Text(
+          'Metre(m)',
+          style: TextStyle(
+            color: Color(0xFF536177),
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildTextField({
     required TextEditingController controller,
     required String label,
@@ -2938,12 +2952,9 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [_designNavy, _designNavyLight],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: const Color(0xFFF1F3F5),
         borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: _border),
         boxShadow: const [
           BoxShadow(
             color: Color(0x2213233F),
@@ -2969,7 +2980,7 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
               const Text(
                 'SHIFT EN COURS',
                 style: TextStyle(
-                  color: _accentOrange,
+                  color: _muted,
                   fontSize: 11.5,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 1.4,
@@ -2981,7 +2992,7 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
           const Text(
             'Feuille de production',
             style: TextStyle(
-              color: Colors.white,
+              color: _designNavy,
               fontSize: 24,
               fontWeight: FontWeight.w900,
               letterSpacing: -0.3,
@@ -3011,9 +3022,9 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.08),
+              color: Colors.white,
               borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+              border: Border.all(color: _border),
             ),
             child: Row(
               children: [
@@ -3043,23 +3054,19 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
   }
 
   Widget _buildInfoChip(IconData icon, String text, {bool highlight = false}) {
-    final foreground = highlight ? _designNavy : Colors.white;
+    final foreground = highlight ? _designNavy : _textDark;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: highlight ? _accentOrange : Colors.white.withValues(alpha: 0.12),
+        color: highlight ? _accentOrange : Colors.white,
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(
-          color: highlight
-              ? _accentOrange
-              : Colors.white.withValues(alpha: 0.18),
-        ),
+        border: Border.all(color: highlight ? _accentOrange : _border),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 18, color: highlight ? _designNavy : Colors.white),
+          Icon(icon, size: 18, color: highlight ? _designNavy : _muted),
           const SizedBox(width: 8),
           Flexible(
             child: Text(
@@ -3083,7 +3090,7 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
           Text(
             label,
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.76),
+              color: _muted,
               fontSize: 12,
               fontWeight: FontWeight.w600,
             ),
@@ -3092,7 +3099,7 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
           Text(
             value,
             style: const TextStyle(
-              color: Colors.white,
+              color: _textDark,
               fontWeight: FontWeight.w700,
             ),
           ),

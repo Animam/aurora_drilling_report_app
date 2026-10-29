@@ -20,7 +20,6 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
   static const List<String> _quartOptions = ['Day/Jour', 'Night/Nuit'];
 
   static const Color _navy = Color(0xFF13233F);
-  static const Color _navyLight = Color(0xFF1E3A5F);
   static const Color _orange = Color(0xFFF18E28);
   static const Color _textDark = Color(0xFF18243E);
   static const Color _muted = Color(0xFF69758C);
@@ -293,8 +292,11 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
 
     if (_hourMeterEnabled && _hourMeterController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Le compteur horaire est obligatoire.'),backgroundColor: Colors.red),)
-      ;
+        const SnackBar(
+          content: Text('Le compteur horaire est obligatoire.'),
+          backgroundColor: Colors.red,
+        ),
+      );
       return;
     }
 
@@ -590,13 +592,7 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
 
   Widget _buildContextPanel() {
     return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [_navy, _navyLight],
-        ),
-      ),
+      decoration: const BoxDecoration(color: Color(0xFFF1F3F5)),
       child: Stack(
         children: [
           Positioned(
@@ -626,7 +622,7 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                     const Text(
                       'Contexte de forage',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: _navy,
                         fontSize: 26,
                         fontWeight: FontWeight.w900,
                         height: 1.15,
@@ -637,7 +633,7 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                     Text(
                       'Renseignez le shift avant la saisie de la production.',
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.65),
+                        color: _muted,
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
                         height: 1.45,
@@ -662,11 +658,7 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                   padding: const EdgeInsets.only(top: 30),
                   child: Row(
                     children: [
-                      Icon(
-                        Icons.shield_outlined,
-                        size: 14,
-                        color: Colors.white.withValues(alpha: 0.42),
-                      ),
+                      Icon(Icons.shield_outlined, size: 14, color: _muted),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
@@ -674,7 +666,7 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.42),
+                            color: _muted,
                             fontSize: 11.5,
                             fontWeight: FontWeight.w600,
                           ),
@@ -695,12 +687,9 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 24, 24, 58),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [_navy, _navyLight],
-        ),
+        color: const Color(0xFFF1F3F5),
         borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: _border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -721,7 +710,7 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: Colors.white,
+                        color: _navy,
                         fontSize: 20,
                         fontWeight: FontWeight.w900,
                         height: 1.2,
@@ -736,7 +725,7 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
           Text(
             'Renseignez le shift avant la saisie production.',
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.66),
+              color: _muted,
               fontSize: 12.5,
               fontWeight: FontWeight.w500,
               height: 1.4,
@@ -763,9 +752,9 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.10),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(size * 0.28),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
+        border: Border.all(color: _border),
       ),
       child: Icon(Icons.assignment_outlined, color: _orange, size: size * 0.46),
     );
@@ -777,7 +766,7 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       style: TextStyle(
-        color: Colors.white.withValues(alpha: 0.48),
+        color: _muted,
         fontSize: compact ? 10.5 : 11.5,
         fontWeight: FontWeight.w800,
         letterSpacing: compact ? 1.3 : 1.5,
@@ -793,9 +782,9 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.08),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+        border: Border.all(color: _border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -846,14 +835,10 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
           width: 30,
           height: 30,
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.08),
+            color: highlight ? _orange.withValues(alpha: 0.14) : _fieldFill,
             borderRadius: BorderRadius.circular(9),
           ),
-          child: Icon(
-            icon,
-            size: 15,
-            color: Colors.white.withValues(alpha: 0.62),
-          ),
+          child: Icon(icon, size: 15, color: highlight ? _orange : _muted),
         ),
         const SizedBox(width: 10),
         Expanded(
@@ -865,7 +850,7 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.45),
+                  color: _muted,
                   fontSize: 10,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 0.9,
@@ -878,8 +863,8 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   color: filled
-                      ? (highlight ? _orange : Colors.white)
-                      : Colors.white.withValues(alpha: 0.38),
+                      ? (highlight ? _navy : _textDark)
+                      : _muted.withValues(alpha: 0.7),
                   fontSize: 13,
                   fontWeight: filled ? FontWeight.w700 : FontWeight.w500,
                   height: 1.3,
@@ -904,7 +889,7 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
               child: Text(
                 'PROGRESSION',
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.48),
+                  color: _muted,
                   fontSize: 10.5,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 1.2,
@@ -914,7 +899,7 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
             Text(
               '$done/6',
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.72),
+                color: _textDark,
                 fontSize: 11.5,
                 fontWeight: FontWeight.w800,
               ),
@@ -932,9 +917,7 @@ class _RegistrationScreenState extends ConsumerState<RegistrationScreen> {
                   curve: Curves.easeOut,
                   height: 5,
                   decoration: BoxDecoration(
-                    color: index < done
-                        ? _orange
-                        : Colors.white.withValues(alpha: 0.16),
+                    color: index < done ? _orange : _border,
                     borderRadius: BorderRadius.circular(999),
                   ),
                 ),

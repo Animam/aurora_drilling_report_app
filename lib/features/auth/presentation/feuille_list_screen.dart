@@ -71,7 +71,6 @@ class FeuilleListScreen extends ConsumerStatefulWidget {
 class _FeuilleListScreenState extends ConsumerState<FeuilleListScreen> {
   static const Color _accentOrange = Color(0xFFF18E28);
   static const Color _designNavy = Color(0xFF13233F);
-  static const Color _designNavyLight = Color(0xFF1E3A5F);
   static const Color _textDark = Color(0xFF18243E);
   static const Color _muted = Color(0xFF69758C);
   static const Color _border = Color(0xFFD7DFEA);
@@ -162,12 +161,12 @@ class _FeuilleListScreenState extends ConsumerState<FeuilleListScreen> {
       decoration: BoxDecoration(
         color: isDraft
             ? const Color(0xFFB3261E).withValues(alpha: 0.12)
-            : Colors.white.withValues(alpha: 0.1),
+            : Colors.white,
         borderRadius: BorderRadius.circular(999),
         border: Border.all(
           color: isDraft
               ? const Color(0xFFB3261E).withValues(alpha: 0.35)
-              : Colors.white.withValues(alpha: 0.18),
+              : _border,
         ),
       ),
       child: Row(
@@ -182,7 +181,7 @@ class _FeuilleListScreenState extends ConsumerState<FeuilleListScreen> {
           Text(
             label,
             style: TextStyle(
-              color: isDraft ? const Color(0xFF7C1C13) : Colors.white,
+              color: isDraft ? const Color(0xFF7C1C13) : _textDark,
               fontSize: 13,
               fontWeight: FontWeight.w800,
             ),
@@ -196,17 +195,14 @@ class _FeuilleListScreenState extends ConsumerState<FeuilleListScreen> {
     required String label,
     required double meters,
     required Color accent,
-    required bool isDraft,
   }) {
     return Expanded(
       child: Container(
         padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
         decoration: BoxDecoration(
-          color: isDraft ? Colors.white : Colors.white.withValues(alpha: 0.07),
+          color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isDraft ? _border : Colors.white.withValues(alpha: 0.1),
-          ),
+          border: Border.all(color: _border),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -227,10 +223,8 @@ class _FeuilleListScreenState extends ConsumerState<FeuilleListScreen> {
                     label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: isDraft
-                          ? _muted
-                          : Colors.white.withValues(alpha: 0.68),
+                    style: const TextStyle(
+                      color: _muted,
                       fontSize: 10,
                       fontWeight: FontWeight.w900,
                       letterSpacing: 0.9,
@@ -246,8 +240,8 @@ class _FeuilleListScreenState extends ConsumerState<FeuilleListScreen> {
               child: Text(
                 '${_formatMeters(meters)} m',
                 maxLines: 1,
-                style: TextStyle(
-                  color: isDraft ? _textDark : Colors.white,
+                style: const TextStyle(
+                  color: _textDark,
                   fontSize: 17,
                   fontWeight: FontWeight.w900,
                   letterSpacing: -0.3,
@@ -381,16 +375,15 @@ class _FeuilleListScreenState extends ConsumerState<FeuilleListScreen> {
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(28),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: isDraft
-                  ? const [Color(0xFFFFF4F3), Colors.white]
-                  : const [_designNavy, _designNavyLight],
-            ),
-            border: Border.all(
-              color: isDraft ? _border : Colors.white.withValues(alpha: 0.08),
-            ),
+            color: isDraft ? null : const Color(0xFFF1F3F5),
+            gradient: isDraft
+                ? const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFFFFF4F3), Colors.white],
+                  )
+                : null,
+            border: Border.all(color: _border),
             boxShadow: const [
               BoxShadow(
                 color: Color(0x0F13233F),
@@ -434,8 +427,8 @@ class _FeuilleListScreenState extends ConsumerState<FeuilleListScreen> {
                           children: [
                             Text(
                               isDraft ? 'Brouillon' : 'Feuille en attente',
-                              style: TextStyle(
-                                color: isDraft ? _textDark : Colors.white,
+                              style: const TextStyle(
+                                color: _textDark,
                                 fontWeight: FontWeight.w900,
                                 fontSize: 16,
                               ),
@@ -443,10 +436,8 @@ class _FeuilleListScreenState extends ConsumerState<FeuilleListScreen> {
                             const SizedBox(height: 2),
                             Text(
                               item.mobileUuid.isEmpty ? '--' : item.mobileUuid,
-                              style: TextStyle(
-                                color: isDraft
-                                    ? _muted
-                                    : Colors.white.withValues(alpha: 0.7),
+                              style: const TextStyle(
+                                color: _muted,
                                 fontSize: 12,
                               ),
                             ),
@@ -463,23 +454,18 @@ class _FeuilleListScreenState extends ConsumerState<FeuilleListScreen> {
                             height: 22,
                             child: CircularProgressIndicator(
                               strokeWidth: 2.2,
-                              color: isDraft ? _designNavy : Colors.white,
+                              color: _designNavy,
                             ),
                           )
                         else
-                          Icon(
-                            Icons.chevron_right_rounded,
-                            color: isDraft ? _muted : Colors.white,
-                          ),
+                          Icon(Icons.chevron_right_rounded, color: _muted),
                         IconButton(
                           onPressed: isOpening
                               ? null
                               : () => _confirmDeleteFeuille(item),
                           icon: Icon(
                             Icons.delete_outline_rounded,
-                            color: isDraft
-                                ? const Color(0xFFB3261E)
-                                : Colors.white70,
+                            color: isDraft ? const Color(0xFFB3261E) : _muted,
                           ),
                           tooltip: 'Supprimer',
                         ),
@@ -521,21 +507,18 @@ class _FeuilleListScreenState extends ConsumerState<FeuilleListScreen> {
                       label: 'TOTAL',
                       meters: totalMeters,
                       accent: _accentOrange,
-                      isDraft: isDraft,
                     ),
                     const SizedBox(width: 8),
                     _buildMeterStat(
                       label: 'SAPRO',
                       meters: saproMeters,
                       accent: const Color(0xFF0F9D8A),
-                      isDraft: isDraft,
                     ),
                     const SizedBox(width: 8),
                     _buildMeterStat(
                       label: 'ROCK',
                       meters: rockMeters,
                       accent: const Color(0xFF8B9BB4),
-                      isDraft: isDraft,
                     ),
                   ],
                 ),

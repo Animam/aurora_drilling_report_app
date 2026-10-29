@@ -80,7 +80,6 @@ class DrillingStaffForm extends ConsumerStatefulWidget {
 class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
   static const Color _accentOrange = Color(0xFFF18E28);
   static const Color _designNavy = Color(0xFF13233F);
-  static const Color _designNavyLight = Color(0xFF1E3A5F);
   static const Color _textDark = Color(0xFF18243E);
   static const Color _muted = Color(0xFF69758C);
   static const Color _border = Color(0xFFD7DFEA);
@@ -998,12 +997,9 @@ class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [_designNavy, _designNavyLight],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: const Color(0xFFF1F3F5),
         borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: _border),
         boxShadow: const [
           BoxShadow(
             color: Color(0x2213233F),
@@ -1029,7 +1025,7 @@ class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
               const Text(
                 'SHIFT EN COURS',
                 style: TextStyle(
-                  color: _accentOrange,
+                  color: _muted,
                   fontSize: 11.5,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 1.4,
@@ -1041,7 +1037,7 @@ class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
           const Text(
             'Equipe / Personnel du shift',
             style: TextStyle(
-              color: Colors.white,
+              color: _designNavy,
               fontSize: 24,
               fontWeight: FontWeight.w900,
               letterSpacing: -0.3,
@@ -1050,16 +1046,13 @@ class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
           const SizedBox(height: 8),
           Text(
             '${_staffLogs.length} employe(s) selectionne(s) pour cette feuille.',
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.72),
-              fontWeight: FontWeight.w500,
-            ),
+            style: TextStyle(color: _muted, fontWeight: FontWeight.w500),
           ),
           const SizedBox(height: 4),
           Text(
             'Horaires par defaut : ${_projectStartHour()} - ${_projectEndHour()}',
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.56),
+              color: _muted,
               fontSize: 12.5,
               fontWeight: FontWeight.w500,
             ),
@@ -1068,7 +1061,7 @@ class _DrillingStaffFormState extends ConsumerState<DrillingStaffForm> {
           const Text(
             'AJOUT RAPIDE PAR ROLE',
             style: TextStyle(
-              color: _accentOrange,
+              color: _muted,
               fontSize: 11.5,
               fontWeight: FontWeight.w800,
               letterSpacing: 1.2,

@@ -21,8 +21,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   static const _orange = Color(0xFFF18E28);
   static const _textDark = Color(0xFF18243E);
   static const _muted = Color(0xFF69758C);
+  static const _border = Color(0xFFD7DFEA);
 
-  final _dbController = TextEditingController(text: 'TRAINING');
+  final _dbController = TextEditingController(text: 'TRAINING'); //Aurora_db_prod
   final _loginController = TextEditingController();
   final _passwordController = TextEditingController();
 
@@ -98,16 +99,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }) async {
     await ref.read(cookieJarProvider).deleteAll();
     final authApi = ref.read(authApiProvider);
-    await authApi.login(
-      db: db,
-      login: login,
-      password: password,
-    );
+    await authApi.login(db: db, login: login, password: password);
 
-    final bootstrapResult = await ref.read(bootstrapApiProvider).fetchBootstrap();
-    final companyData = Map<String, dynamic>.from(bootstrapResult['company'] as Map? ?? const {});
-    final employeeContext =
-        Map<String, dynamic>.from(bootstrapResult['employee_context'] as Map? ?? const {});
+    final bootstrapResult = await ref
+        .read(bootstrapApiProvider)
+        .fetchBootstrap();
+    final companyData = Map<String, dynamic>.from(
+      bootstrapResult['company'] as Map? ?? const {},
+    );
+    final employeeContext = Map<String, dynamic>.from(
+      bootstrapResult['employee_context'] as Map? ?? const {},
+    );
     final companyId = (companyData['id'] as num?)?.toInt();
     final companyName = companyData['name']?.toString() ?? '';
     final employeeId = (employeeContext['employee_id'] as num?)?.toInt();
@@ -118,7 +120,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final cachedScope = await mobileScopeCache.readScope();
     final binding = await companyLock.readBinding();
     final cachedCompanyId =
-        (cachedScope?['company_id'] as int?) ?? (binding?['company_id'] as int?);
+        (cachedScope?['company_id'] as int?) ??
+        (binding?['company_id'] as int?);
     final hasUnsyncedData = await database.hasUnsyncedLocalFeuilles();
 
     if (companyId == null || companyName.isEmpty) {
@@ -164,18 +167,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     await ensureReferenceData(ref, bootstrapResult: bootstrapResult);
 
     // Login online complet et donnees en cache OK → on peut activer le login offline
-    await ref.read(offlineAuthServiceProvider).saveCredentials(
-          db: db,
-          login: login,
-          password: password,
-        );
+    await ref
+        .read(offlineAuthServiceProvider)
+        .saveCredentials(db: db, login: login, password: password);
 
     if (!mounted) return;
 
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (_) => const PostLoginMenuScreen(),
-      ),
+      MaterialPageRoute(builder: (_) => const PostLoginMenuScreen()),
     );
   }
 
@@ -194,9 +193,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (result == OfflineAuthResult.valid) {
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => const PostLoginMenuScreen(),
-        ),
+        MaterialPageRoute(builder: (_) => const PostLoginMenuScreen()),
       );
       return;
     }
@@ -352,11 +349,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget _buildBrandPanel() {
     return Container(
       decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF13233F), Color(0xFF1E3A5F)],
-        ),
+        color: Color(0xFFF1F3F5),
+        border: Border(right: BorderSide(color: _border)),
       ),
       child: Stack(
         children: [
@@ -387,6 +381,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: _border),
                       ),
                       child: Image.asset(
                         'assets/images/aurora_logo.png',
@@ -397,7 +392,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     const Text(
                       'Rapport De Forage',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: _navy,
                         fontSize: 32,
                         fontWeight: FontWeight.w900,
                         height: 1.1,
@@ -408,7 +403,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     Text(
                       'Aurora · Saisie des feuilles de forage',
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.68),
+                        color: _muted,
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
                         height: 1.4,
@@ -447,11 +442,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   padding: const EdgeInsets.only(top: 32),
                   child: Row(
                     children: [
-                      Icon(
-                        Icons.lock_outline_rounded,
-                        size: 14,
-                        color: Colors.white.withValues(alpha: 0.42),
-                      ),
+                      Icon(Icons.lock_outline_rounded, size: 14, color: _muted),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
@@ -459,7 +450,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.42),
+                            color: _muted,
                             fontSize: 11.5,
                             fontWeight: FontWeight.w600,
                           ),
@@ -484,8 +475,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           width: 40,
           height: 40,
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.10),
+            color: Colors.white,
             borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: _border),
           ),
           child: Icon(icon, color: _orange, size: 20),
         ),
@@ -497,7 +489,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               Text(
                 title,
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: _textDark,
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
                 ),
@@ -505,11 +497,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               const SizedBox(height: 3),
               Text(
                 subtitle,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.60),
-                  fontSize: 12,
-                  height: 1.4,
-                ),
+                style: TextStyle(color: _muted, fontSize: 12, height: 1.4),
               ),
             ],
           ),
@@ -526,12 +514,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 24, 24, 64),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF13233F), Color(0xFF1E3A5F)],
-        ),
+        color: const Color(0xFFF1F3F5),
         borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: _border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -545,20 +530,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: _border),
                 ),
                 child: Image.asset(
                   'assets/images/aurora_logo.png',
                   fit: BoxFit.contain,
                 ),
               ),
-              
             ],
           ),
           const SizedBox(height: 22),
           const Text(
             'Rapport De Forage',
             style: TextStyle(
-              color: Colors.white,
+              color: _navy,
               fontSize: 28,
               fontWeight: FontWeight.w900,
               height: 1.1,
@@ -569,7 +554,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           Text(
             'Aurora · Saisie des feuilles de forage',
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.68),
+              color: _muted,
               fontSize: 13.5,
               fontWeight: FontWeight.w500,
             ),
@@ -637,11 +622,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           const SizedBox(height: 6),
           const Text(
             'Connectez-vous pour acceder a vos feuilles de forage.',
-            style: TextStyle(
-              color: _muted,
-              fontSize: 14,
-              height: 1.4,
-            ),
+            style: TextStyle(color: _muted, fontSize: 14, height: 1.4),
           ),
           const SizedBox(height: 28),
           _buildLabel('Utilisateur'),
@@ -686,7 +667,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 disabledBackgroundColor: _orange.withValues(alpha: 0.55),
                 disabledForegroundColor: _navy.withValues(alpha: 0.55),
                 elevation: 0,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 18,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
@@ -724,11 +708,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(
-                Icons.verified_user_outlined,
-                size: 14,
-                color: _muted,
-              ),
+              const Icon(Icons.verified_user_outlined, size: 14, color: _muted),
               const SizedBox(width: 6),
               Flexible(
                 child: Text(
@@ -849,7 +829,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             : null,
         filled: true,
         fillColor: const Color(0xFFF8FAFD),
-        contentPadding: const EdgeInsets.symmetric(vertical: 17, horizontal: 16),
+        contentPadding: const EdgeInsets.symmetric(
+          vertical: 17,
+          horizontal: 16,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: const BorderSide(color: Color(0xFFD7DFEA)),

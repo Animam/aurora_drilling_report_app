@@ -103,10 +103,10 @@ class _PostLoginMenuScreenState extends ConsumerState<PostLoginMenuScreen> {
         vertical: compact ? 4 : 6,
       ),
       decoration: BoxDecoration(
-        color: const Color(0xFFF18E28).withValues(alpha: 0.16),
+        color: const Color(0xFFF18E28).withValues(alpha: 0.22),
         borderRadius: BorderRadius.circular(999),
         border: Border.all(
-          color: const Color(0xFFF18E28).withValues(alpha: 0.5),
+          color: const Color(0xFFF18E28).withValues(alpha: 0.7),
         ),
       ),
       child: Row(
@@ -115,7 +115,7 @@ class _PostLoginMenuScreenState extends ConsumerState<PostLoginMenuScreen> {
           const Icon(
             Icons.work_outline_rounded,
             size: 13,
-            color: Color(0xFFF18E28),
+            color: Color(0xFF13233F),
           ),
           const SizedBox(width: 6),
           Flexible(
@@ -124,7 +124,7 @@ class _PostLoginMenuScreenState extends ConsumerState<PostLoginMenuScreen> {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                color: const Color(0xFFF18E28),
+                color: const Color(0xFF13233F),
                 fontSize: compact ? 10 : 11,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 0.8,
@@ -497,13 +497,7 @@ class _PostLoginMenuScreenState extends ConsumerState<PostLoginMenuScreen> {
 
   Widget _buildIdentityPanel() {
     return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF13233F), Color(0xFF1E3A5F)],
-        ),
-      ),
+      decoration: const BoxDecoration(color: Color(0xFFF1F3F5)),
       child: Stack(
         children: [
           Positioned(
@@ -534,7 +528,7 @@ class _PostLoginMenuScreenState extends ConsumerState<PostLoginMenuScreen> {
                     Text(
                       'BON RETOUR',
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.48),
+                        color: const Color(0xFF69758C),
                         fontSize: 11.5,
                         fontWeight: FontWeight.w800,
                         letterSpacing: 1.5,
@@ -544,7 +538,7 @@ class _PostLoginMenuScreenState extends ConsumerState<PostLoginMenuScreen> {
                     Text(
                       _displayName,
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: Color(0xFF13233F),
                         fontSize: 26,
                         fontWeight: FontWeight.w900,
                         height: 1.15,
@@ -559,7 +553,7 @@ class _PostLoginMenuScreenState extends ConsumerState<PostLoginMenuScreen> {
                           Icon(
                             Icons.business_rounded,
                             size: 16,
-                            color: Colors.white.withValues(alpha: 0.58),
+                            color: const Color(0xFF536177),
                           ),
                           const SizedBox(width: 8),
                           Expanded(
@@ -568,7 +562,7 @@ class _PostLoginMenuScreenState extends ConsumerState<PostLoginMenuScreen> {
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.72),
+                                color: const Color(0xFF536177),
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
                                 height: 1.35,
@@ -592,7 +586,7 @@ class _PostLoginMenuScreenState extends ConsumerState<PostLoginMenuScreen> {
                       ),
                     ),
                     const SizedBox(height: 26),
-                    _buildPendingStat(onDark: true),
+                    _buildPendingStat(onDark: false),
                   ],
                 ),
                 Padding(
@@ -602,7 +596,7 @@ class _PostLoginMenuScreenState extends ConsumerState<PostLoginMenuScreen> {
                       Icon(
                         Icons.shield_outlined,
                         size: 14,
-                        color: Colors.white.withValues(alpha: 0.42),
+                        color: const Color(0xFF69758C),
                       ),
                       const SizedBox(width: 6),
                       Expanded(
@@ -611,7 +605,7 @@ class _PostLoginMenuScreenState extends ConsumerState<PostLoginMenuScreen> {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.42),
+                            color: const Color(0xFF69758C),
                             fontSize: 11.5,
                             fontWeight: FontWeight.w600,
                           ),
@@ -632,11 +626,7 @@ class _PostLoginMenuScreenState extends ConsumerState<PostLoginMenuScreen> {
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 24, 24, 58),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF13233F), Color(0xFF1E3A5F)],
-        ),
+        color: const Color(0xFFF1F3F5),
         borderRadius: BorderRadius.circular(30),
       ),
       child: Column(
@@ -654,7 +644,7 @@ class _PostLoginMenuScreenState extends ConsumerState<PostLoginMenuScreen> {
                     Text(
                       'BON RETOUR',
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.48),
+                        color: const Color(0xFF69758C),
                         fontSize: 10.5,
                         fontWeight: FontWeight.w800,
                         letterSpacing: 1.3,
@@ -666,7 +656,7 @@ class _PostLoginMenuScreenState extends ConsumerState<PostLoginMenuScreen> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: Color(0xFF13233F),
                         fontSize: 20,
                         fontWeight: FontWeight.w900,
                         height: 1.2,
@@ -679,7 +669,7 @@ class _PostLoginMenuScreenState extends ConsumerState<PostLoginMenuScreen> {
                           Icon(
                             Icons.business_rounded,
                             size: 12,
-                            color: Colors.white.withValues(alpha: 0.58),
+                            color: const Color(0xFF536177),
                           ),
                           const SizedBox(width: 5),
                           Expanded(
@@ -688,7 +678,7 @@ class _PostLoginMenuScreenState extends ConsumerState<PostLoginMenuScreen> {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.68),
+                                color: const Color(0xFF536177),
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -716,7 +706,7 @@ class _PostLoginMenuScreenState extends ConsumerState<PostLoginMenuScreen> {
             ),
           ),
           const SizedBox(height: 20),
-          _buildPendingStat(onDark: true),
+          _buildPendingStat(onDark: false),
         ],
       ),
     );
@@ -730,16 +720,16 @@ class _PostLoginMenuScreenState extends ConsumerState<PostLoginMenuScreen> {
         width: size,
         height: size,
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.10),
+          color: Colors.white,
           shape: BoxShape.circle,
           border: Border.all(
-            color: Colors.white.withValues(alpha: 0.22),
+            color: const Color(0xFFBDBDBD),
             width: 1.5,
           ),
         ),
         child: Icon(
           Icons.person_rounded,
-          color: Colors.white,
+          color: const Color(0xFF13233F),
           size: size * 0.46,
         ),
       ),
