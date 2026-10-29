@@ -572,6 +572,12 @@ class _RecapScreenState extends ConsumerState<RecapScreen> {
       if (row.description.trim().isEmpty) {
         throw Exception('Chaque ligne materiel doit avoir une description');
       }
+      if (!isMaterialQuantityValid(row.quantite)) {
+        throw Exception(
+          'La quantite du materiel "${row.description.trim()}" '
+          'doit etre superieure a 0',
+        );
+      }
     }
 
     for (final row in filledFuelRows) {

@@ -115,6 +115,66 @@ class _ActivityProgressSegment {
   final double durationHours;
 }
 
+/// Construit la liste des trous proposes dans le champ "Hole No.".
+///
+/// Ordre de priorite : trous de la feuille en cours (pas encore forcement
+/// enregistres), puis trous recents enregistres, puis trous connus du serveur.
+/// Les valeurs vides et les doublons (insensibles a la casse) sont ignores.
+/// [limit] vaut 3 par defaut.
+List<String> buildHoleSuggestions({
+  required Iterable<String> draftHoles,
+  required Iterable<String> recentHoles,
+  required Iterable<String> knownHoles,
+  required String query,
+  int limit = 3,
+}) {
+  if (limit <= 0) {
+    return const [];
+  }
+  final normalizedQuery = query.trim().toLowerCase();
+  final suggestions = <String>[];
+  final seen = <String>{};
+
+  void addCandidate(String value) {
+    if (suggestions.length >= limit) {
+      return;
+    }
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) {
+      return;
+    }
+    final key = trimmed.toLowerCase();
+    if (seen.contains(key)) {
+      return;
+    }
+    if (normalizedQuery.isNotEmpty && !key.contains(normalizedQuery)) {
+      return;
+    }
+    seen.add(key);
+    suggestions.add(trimmed);
+  }
+
+  for (final hole in draftHoles) {
+    addCandidate(hole);
+    if (suggestions.length >= limit) {
+      return suggestions;
+    }
+  }
+  for (final hole in recentHoles) {
+    addCandidate(hole);
+    if (suggestions.length >= limit) {
+      return suggestions;
+    }
+  }
+  for (final hole in knownHoles) {
+    addCandidate(hole);
+    if (suggestions.length >= limit) {
+      break;
+    }
+  }
+  return suggestions;
+}
+
 class ProductionScreen extends ConsumerStatefulWidget {
   const ProductionScreen({
     super.key,
@@ -146,7 +206,7 @@ class ProductionScreen extends ConsumerStatefulWidget {
 class _ProductionScreenState extends ConsumerState<ProductionScreen> {
   static const List<String> _categories = ['NOH', 'DOWN', 'DELAY', 'STANDBY'];
   static const Map<String, String> _categoryLabels = {
-    'NOH': 'Net Operational Hours',
+    'NOH': 'Net Operating Hours',
   };
   static const Map<String, String> _categoryCodes = {
     'NOH': '1',
@@ -499,40 +559,23 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
     return maxToDim;
   }
 
-  List<String> _holeSuggestions(String query) {
-    final normalized = query.trim().toLowerCase();
-    final suggestions = <String>[];
-    final seen = <String>{};
-
-    void addCandidate(String value) {
-      final trimmed = value.trim();
-      if (trimmed.isEmpty) {
-        return;
+  List<String> _holeSuggestions(String query, {int? excludeIndex}) {
+    // Les trous de la feuille en cours d'abord (du plus recent au plus ancien) :
+    // ils ne sont pas encore forcement enregistres en base.
+    final draftHoles = <String>[];
+    for (var index = _timeLogs.length - 1; index >= 0; index--) {
+      if (excludeIndex != null && index == excludeIndex) {
+        continue;
       }
-      final key = trimmed.toLowerCase();
-      if (seen.contains(key)) {
-        return;
-      }
-      if (normalized.isNotEmpty && !key.contains(normalized)) {
-        return;
-      }
-      seen.add(key);
-      suggestions.add(trimmed);
+      draftHoles.add(_timeLogs[index].holeNo.text);
     }
 
-    for (final hole in _recentHoleNos) {
-      addCandidate(hole);
-      if (suggestions.length >= 3) {
-        return suggestions;
-      }
-    }
-    for (final hole in _projectHoleProgressMap.keys) {
-      addCandidate(hole);
-      if (suggestions.length >= 3) {
-        break;
-      }
-    }
-    return suggestions;
+    return buildHoleSuggestions(
+      draftHoles: draftHoles,
+      recentHoles: _recentHoleNos,
+      knownHoles: _projectHoleProgressMap.keys,
+      query: query,
+    );
   }
 
   Future<int?> _maxToDimForHole(String holeNo, {int? excludeIndex}) async {
@@ -2005,6 +2048,7 @@ class _ProductionScreenState extends ConsumerState<ProductionScreen> {
                                             final suggestions =
                                                 _holeSuggestions(
                                                   log.holeNo.text.trim(),
+                                                  excludeIndex: existingIndex,
                                                 );
                                             if (!holeProgressInitialized &&
                                                 category == 'NOH' &&

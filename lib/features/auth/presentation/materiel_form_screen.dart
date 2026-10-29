@@ -1,4 +1,4 @@
-import 'dart:math' as math;
+﻿import 'dart:math' as math;
 
 import 'package:aurora_drilling_report/data/local/db/app_database.dart';
 import 'package:aurora_drilling_report/shared/providers/app_providers.dart';
@@ -16,7 +16,7 @@ class _ConsumableLogDraft {
     this.materialOdooId,
     String description = '',
     String serie = '',
-    String quantite = '0',
+    String quantite = '1',
     String observation = '',
     String status = '',
   }) {
@@ -41,7 +41,7 @@ class _ConsumableLogDraft {
   bool showObservation;
   final TextEditingController descriptionController = TextEditingController();
   final TextEditingController serie = TextEditingController();
-  final TextEditingController quantite = TextEditingController(text: '0');
+  final TextEditingController quantite = TextEditingController(text: '1');
   final TextEditingController observation = TextEditingController();
   final TextEditingController status = TextEditingController();
 
@@ -115,6 +115,16 @@ String materialStatusLabel(String? rawValue) {
     default:
       return raw;
   }
+}
+
+/// Une quantite materiel doit etre renseignee et strictement superieure a 0.
+bool isMaterialQuantityValid(String? rawValue) {
+  final trimmed = (rawValue ?? '').trim();
+  if (trimmed.isEmpty) {
+    return false;
+  }
+  final parsed = double.tryParse(trimmed.replaceAll(',', '.'));
+  return parsed != null && parsed > 0;
 }
 
 class _DrillingConsumableFormState
@@ -503,7 +513,7 @@ class _DrillingConsumableFormState
   void _updateQuantity(TextEditingController controller, int delta) {
     final currentVal = int.tryParse(controller.text) ?? 0;
     final newVal = currentVal + delta;
-    if (newVal >= 0) {
+    if (newVal >= 1) {
       setState(() {
         controller.text = newVal.toString();
       });
@@ -601,53 +611,78 @@ class _DrillingConsumableFormState
   }
 
   Widget _buildQuantityField(_ConsumableLogDraft item) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _border),
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            visualDensity: VisualDensity.compact,
-            onPressed: () => _updateQuantity(item.quantite, -1),
-            icon: const Icon(
-              Icons.remove_circle_outline_rounded,
-              color: _accentOrange,
-            ),
-            tooltip: 'Diminuer',
-          ),
-          Expanded(
-            child: TextField(
-              controller: item.quantite,
-              textAlign: TextAlign.center,
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              onChanged: (_) => _persistDraft(),
-              decoration: const InputDecoration(
-                border: InputBorder.none,
-                isDense: true,
+    return ValueListenableBuilder<TextEditingValue>(
+      valueListenable: item.quantite,
+      builder: (context, value, _) {
+        final invalid = !isMaterialQuantityValid(value.text);
+        final currentQuantity = int.tryParse(value.text.trim()) ?? 0;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: invalid ? Colors.redAccent : _border),
               ),
-              style: const TextStyle(
-                color: _textDark,
-                fontWeight: FontWeight.w800,
-                fontSize: 18,
+              child: Row(
+                children: [
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    onPressed: currentQuantity <= 1
+                        ? null
+                        : () => _updateQuantity(item.quantite, -1),
+                    icon: const Icon(
+                      Icons.remove_circle_outline_rounded,
+                      color: _accentOrange,
+                    ),
+                    tooltip: 'Diminuer',
+                  ),
+                  Expanded(
+                    child: TextField(
+                      controller: item.quantite,
+                      textAlign: TextAlign.center,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      onChanged: (_) => _persistDraft(),
+                      decoration: const InputDecoration(
+                        border: InputBorder.none,
+                        isDense: true,
+                      ),
+                      style: const TextStyle(
+                        color: _textDark,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 18,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => _updateQuantity(item.quantite, 1),
+                    icon: const Icon(
+                      Icons.add_circle_outline_rounded,
+                      color: _accentOrange,
+                    ),
+                    tooltip: 'Augmenter',
+                  ),
+                ],
               ),
             ),
-          ),
-          IconButton(
-            visualDensity: VisualDensity.compact,
-            onPressed: () => _updateQuantity(item.quantite, 1),
-            icon: const Icon(
-              Icons.add_circle_outline_rounded,
-              color: _accentOrange,
-            ),
-            tooltip: 'Augmenter',
-          ),
-        ],
-      ),
+            if (invalid) ...[
+              const SizedBox(height: 6),
+              const Text(
+                'La quantite doit etre superieure a 0',
+                style: TextStyle(
+                  color: Colors.redAccent,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ],
+        );
+      },
     );
   }
 
@@ -942,6 +977,24 @@ class _DrillingConsumableFormState
           Expanded(
             child: FilledButton.icon(
               onPressed: () {
+                final hasInvalidQuantity = _items.any(
+                  (item) => !isMaterialQuantityValid(item.quantite.text),
+                );
+                if (hasInvalidQuantity) {
+                  _persistDraft();
+                  ScaffoldMessenger.of(context)
+                    ..hideCurrentSnackBar()
+                    ..showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'La quantite doit etre superieure a 0',
+                        ),
+                        backgroundColor: Colors.red,
+                        behavior: SnackBarBehavior.floating,
+                      ),
+                    );
+                  return;
+                }
                 _persistDraft();
                 Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const DrillingFuelForm()),

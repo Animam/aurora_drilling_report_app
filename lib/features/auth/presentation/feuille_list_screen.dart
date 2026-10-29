@@ -7,6 +7,53 @@ import '../../../shared/providers/app_providers.dart';
 import 'recap_screen.dart';
 import 'registration_screen.dart';
 
+/// Nature geologique deduite du libelle de la tache de forage.
+enum DrillingMaterialType { sapro, rock, other }
+
+/// Metrage d'une ligne : total_dim en priorite, sinon l'ecart from/to.
+double ligneMeters(FeuilleLigne ligne) {
+  final total = ligne.totalDim;
+  if (total != null) {
+    return total.toDouble();
+  }
+  final from = ligne.fromDim;
+  final to = ligne.toDim;
+  if (from != null && to != null) {
+    return (to - from).abs().toDouble();
+  }
+  return 0;
+}
+
+/// Classe une ligne de forage en SAPRO / ROCK a partir de la tache associee.
+/// Si la tache n'est pas retrouvee par son id, on tente par son numero d'item,
+/// puis on retombe sur le texte de la ligne.
+DrillingMaterialType drillingMaterialTypeForLine({
+  required FeuilleLigne ligne,
+  required Map<int, Task> tasksById,
+  required Map<String, Task> tasksByNumber,
+}) {
+  final task =
+      (ligne.tacheOdooId != null ? tasksById[ligne.tacheOdooId!] : null) ??
+      tasksByNumber[ligne.item.trim().toLowerCase()];
+
+  final haystack = [
+    task?.libelle ?? '',
+    task?.numItem ?? '',
+    task?.typeActivite ?? '',
+    ligne.item,
+  ].join(' ').toUpperCase();
+
+  if (haystack.contains('SAPRO') || haystack.contains('SAPROLITE')) {
+    return DrillingMaterialType.sapro;
+  }
+  if (haystack.contains('ROCK') ||
+      haystack.contains('ROCHE') ||
+      haystack.contains('ROCHER')) {
+    return DrillingMaterialType.rock;
+  }
+  return DrillingMaterialType.other;
+}
+
 class FeuilleListScreen extends ConsumerStatefulWidget {
   const FeuilleListScreen({
     super.key,
@@ -35,6 +82,8 @@ class _FeuilleListScreenState extends ConsumerState<FeuilleListScreen> {
   Map<int, String> _equipmentNames = {};
   Map<int, String> _locationNames = {};
   Map<int, double> _meterTotals = {};
+  Map<int, double> _saproTotals = {};
+  Map<int, double> _rockTotals = {};
   int? _openingFeuilleLocalId;
 
   Future<void> _load() async {
@@ -43,19 +92,39 @@ class _FeuilleListScreenState extends ConsumerState<FeuilleListScreen> {
     // final projects = await db.getAllProjects();
     final equipments = await db.getAllEquipments();
     final locations = await db.getAllLocations();
+    final tasks = await db.getAllTasks();
+    final tasksById = <int, Task>{for (final task in tasks) task.odooId: task};
+    final tasksByNumber = <String, Task>{
+      for (final task in tasks)
+        if ((task.numItem ?? '').trim().isNotEmpty)
+          task.numItem!.trim().toLowerCase(): task,
+    };
     final meterTotals = <int, double>{};
+    final saproTotals = <int, double>{};
+    final rockTotals = <int, double>{};
 
     for (final feuille in data) {
       final lignes = await db.getLignesByFeuille(feuille.localId);
       var total = 0.0;
+      var sapro = 0.0;
+      var rock = 0.0;
       for (final ligne in lignes) {
-        if (ligne.totalDim != null) {
-          total += ligne.totalDim!;
-        } else if (ligne.fromDim != null && ligne.toDim != null) {
-          total += (ligne.toDim! - ligne.fromDim!).abs();
+        final meters = ligneMeters(ligne);
+        total += meters;
+        final type = drillingMaterialTypeForLine(
+          ligne: ligne,
+          tasksById: tasksById,
+          tasksByNumber: tasksByNumber,
+        );
+        if (type == DrillingMaterialType.sapro) {
+          sapro += meters;
+        } else if (type == DrillingMaterialType.rock) {
+          rock += meters;
         }
       }
       meterTotals[feuille.localId] = total;
+      saproTotals[feuille.localId] = sapro;
+      rockTotals[feuille.localId] = rock;
     }
 
     if (!mounted) {
@@ -68,7 +137,14 @@ class _FeuilleListScreenState extends ConsumerState<FeuilleListScreen> {
       _equipmentNames = {for (final item in equipments) item.odooId: item.name};
       _locationNames = {for (final item in locations) item.odooId: item.name};
       _meterTotals = meterTotals;
+      _saproTotals = saproTotals;
+      _rockTotals = rockTotals;
     });
+  }
+
+  String _formatMeters(double value) {
+    final rounded = value.roundToDouble();
+    return value == rounded ? value.toInt().toString() : value.toString();
   }
 
   String _formatDate(String value) {
@@ -112,6 +188,74 @@ class _FeuilleListScreenState extends ConsumerState<FeuilleListScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildMeterStat({
+    required String label,
+    required double meters,
+    required Color accent,
+    required bool isDraft,
+  }) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
+        decoration: BoxDecoration(
+          color: isDraft ? Colors.white : Colors.white.withValues(alpha: 0.07),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isDraft ? _border : Colors.white.withValues(alpha: 0.1),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 7,
+                  height: 7,
+                  decoration: BoxDecoration(
+                    color: accent,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: isDraft
+                          ? _muted
+                          : Colors.white.withValues(alpha: 0.68),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.9,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                '${_formatMeters(meters)} m',
+                maxLines: 1,
+                style: TextStyle(
+                  color: isDraft ? _textDark : Colors.white,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -0.3,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -202,8 +346,8 @@ class _FeuilleListScreenState extends ConsumerState<FeuilleListScreen> {
     final isOpening = _openingFeuilleLocalId == item.localId;
     final isDraft = item.syncStatus == 'draft';
     final totalMeters = _meterTotals[item.localId] ?? 0.0;
-    final totalText =
-        'Total : ${totalMeters == totalMeters.roundToDouble() ? totalMeters.toInt().toString() : totalMeters.toString()} m';
+    final saproMeters = _saproTotals[item.localId] ?? 0.0;
+    final rockMeters = _rockTotals[item.localId] ?? 0.0;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
@@ -368,9 +512,29 @@ class _FeuilleListScreenState extends ConsumerState<FeuilleListScreen> {
                       _formatDate(item.dateForage),
                       isDraft: isDraft,
                     ),
-                    _buildInfoChip(
-                      Icons.straighten_outlined,
-                      totalText.replaceAll('Total : ', '').trim(),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    _buildMeterStat(
+                      label: 'TOTAL',
+                      meters: totalMeters,
+                      accent: _accentOrange,
+                      isDraft: isDraft,
+                    ),
+                    const SizedBox(width: 8),
+                    _buildMeterStat(
+                      label: 'SAPRO',
+                      meters: saproMeters,
+                      accent: const Color(0xFF0F9D8A),
+                      isDraft: isDraft,
+                    ),
+                    const SizedBox(width: 8),
+                    _buildMeterStat(
+                      label: 'ROCK',
+                      meters: rockMeters,
+                      accent: const Color(0xFF8B9BB4),
                       isDraft: isDraft,
                     ),
                   ],
